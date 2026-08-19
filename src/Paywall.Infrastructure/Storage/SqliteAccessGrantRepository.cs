@@ -30,6 +30,33 @@ public sealed class SqliteAccessGrantRepository(PaywallDatabase database) : IAcc
             reader.ReadOptionalText(3));
     }
 
+    public async Task<AccessGrant?> FindBySubscriptionAsync(
+        string subscriptionReference,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await database.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+
+        command.CommandText = """
+            SELECT user_id, plan_id, expires_at, subscription_reference
+            FROM access_grants WHERE subscription_reference = $subscription
+            """;
+        command.Bind("$subscription", subscriptionReference);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return AccessGrant.Restore(
+            reader.ReadGuid(0),
+            reader.ReadOptionalText(1),
+            reader.ReadOptionalInstant(2),
+            reader.ReadOptionalText(3));
+    }
+
     public async Task SaveAsync(AccessGrant grant, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(grant);

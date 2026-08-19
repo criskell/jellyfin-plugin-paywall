@@ -1,7 +1,7 @@
 using Paywall.Domain;
 using Xunit;
 
-namespace Paywall.Domain.Tests;
+namespace Paywall.Tests;
 
 public class AccessGrantTests
 {

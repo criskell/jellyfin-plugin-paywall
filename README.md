@@ -19,8 +19,18 @@ Implemente `IPaymentProvider` e registre em `PaywallServiceRegistrator`. A inter
 duas coisas: abrir uma cobrança e traduzir o webhook. Quem sabe assinar recorrência implementa
 também `ISupportsSubscriptionCancellation`.
 
-Já vem `manual-pix`: gera o copia e cola no padrão BR Code direto da sua chave, sem
-intermediário, e a confirmação é feita pelo administrador.
+Dois provedores já vêm prontos:
+
+`manual-pix` gera o copia e cola no padrão BR Code direto da sua chave, sem intermediário.
+Não tem como saber que o dinheiro entrou, então a liberação é feita pelo administrador.
+
+`asaas` faz cobrança avulsa e assinatura Pix recorrente, com confirmação automática por
+webhook. Precisa de chave de API e de um token de webhook — sem o token o provedor nem
+aparece, porque qualquer um poderia forjar um pagamento aprovado. O Asaas exige CPF ou CNPJ
+do pagador.
+
+A cobrança que a recorrência gera sozinha todo mês chega sem pedido aberto por aqui. Nesse
+caso o assinante é encontrado pelo id da recorrência e um pedido de renovação é criado.
 
 ## Como o bloqueio funciona
 

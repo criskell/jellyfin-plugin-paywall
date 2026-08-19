@@ -101,6 +101,10 @@ public sealed class PaywallDatabase
             subscription_reference  TEXT NULL
         );
 
+        CREATE INDEX IF NOT EXISTS ix_grants_subscription
+            ON access_grants (subscription_reference)
+            WHERE subscription_reference IS NOT NULL;
+
         PRAGMA user_version = {CurrentSchemaVersion};
         """;
 }

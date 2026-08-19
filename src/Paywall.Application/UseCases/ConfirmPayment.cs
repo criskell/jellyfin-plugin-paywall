@@ -28,7 +28,8 @@ public sealed class ConfirmPayment(
     IOrderRepository orders,
     IAccessGrantRepository grants,
     IPlanCatalog plans,
-    IAccessEnforcer enforcer)
+    IAccessEnforcer enforcer,
+    IIdentifierFactory identifiers)
 {
     public async Task<ConfirmPaymentOutcome> ExecuteAsync(
         InboundNotification notification,
@@ -44,7 +45,8 @@ public sealed class ConfirmPayment(
             return ConfirmPaymentOutcome.Ignored;
         }
 
-        var order = await LocateAsync(notification.ProviderKey, payment, cancellationToken).ConfigureAwait(false);
+        var order = await ResolveOrderAsync(notification.ProviderKey, payment, cancellationToken)
+            .ConfigureAwait(false);
 
         if (order is null)
         {
@@ -62,7 +64,11 @@ public sealed class ConfirmPayment(
         };
     }
 
-    private async Task<Order?> LocateAsync(
+    /// <summary>
+    /// Casa a notificação com um pedido. A cobrança que a recorrência gera sozinha todo mês
+    /// nunca teve pedido aberto por aqui, então nesse caso um pedido de renovação é criado.
+    /// </summary>
+    private async Task<Order?> ResolveOrderAsync(
         string providerKey,
         PaymentEvent payment,
         CancellationToken cancellationToken)
@@ -70,15 +76,57 @@ public sealed class ConfirmPayment(
         if (payment.OrderId is { } orderId)
         {
             var byId = await orders.FindAsync(orderId, cancellationToken).ConfigureAwait(false);
-            if (byId is not null)
+
+            if (byId is { Status: OrderStatus.Pending })
             {
                 return byId;
             }
         }
 
-        return await orders
+        var byReference = await orders
             .FindByReferenceAsync(providerKey, payment.ProviderReference, cancellationToken)
             .ConfigureAwait(false);
+
+        if (byReference is not null)
+        {
+            return byReference;
+        }
+
+        if (payment.SubscriptionReference is not { } subscription)
+        {
+            return null;
+        }
+
+        // A primeira cobrança de uma assinatura nova: o pedido foi aberto com o id da recorrência.
+        var bySubscription = await orders
+            .FindByReferenceAsync(providerKey, subscription, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (bySubscription is { Status: OrderStatus.Pending })
+        {
+            return bySubscription;
+        }
+
+        return await OpenRenewalAsync(providerKey, payment, subscription, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<Order?> OpenRenewalAsync(
+        string providerKey,
+        PaymentEvent payment,
+        string subscription,
+        CancellationToken cancellationToken)
+    {
+        var grant = await grants.FindBySubscriptionAsync(subscription, cancellationToken).ConfigureAwait(false);
+
+        if (grant?.PlanId is null || plans.Find(grant.PlanId) is not { } plan)
+        {
+            return null;
+        }
+
+        var renewal = Order.Open(identifiers.NewId(), grant.UserId, plan, providerKey, payment.OccurredAt);
+        renewal.TrackAs(payment.ProviderReference);
+
+        return renewal;
     }
 
     private async Task<ConfirmPaymentOutcome> SettleAsync(

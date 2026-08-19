@@ -10,7 +10,8 @@ namespace Jellyfin.Plugin.Paywall.Jellyfin;
 /// Traduz a configuração do plugin, que é detalhe de entrega, para as portas do núcleo.
 /// Lê sempre a instância corrente, para que salvar no painel tenha efeito sem reiniciar.
 /// </summary>
-public sealed class PaywallConfigurationAdapter : IPaywallSettings, IPlanCatalog, IManualPixOptions
+public sealed class PaywallConfigurationAdapter
+    : IPaywallSettings, IPlanCatalog, IManualPixOptions, IAsaasOptions
 {
     private static PluginConfiguration Current =>
         Plugin.Instance?.Configuration ?? new PluginConfiguration();
@@ -26,6 +27,14 @@ public sealed class PaywallConfigurationAdapter : IPaywallSettings, IPlanCatalog
     public string? PayeeCity => Blank(Current.ManualPix.PayeeCity);
 
     public string? Instructions => Blank(Current.ManualPix.Instructions);
+
+    public string? ApiKey => Blank(Current.Asaas.ApiKey);
+
+    public string? WebhookToken => Blank(Current.Asaas.WebhookToken);
+
+    public bool UseSandbox => Current.Asaas.UseSandbox;
+
+    public string? ApplicationName => "jellyfin-paywall";
 
     public Plan? Find(string planId)
     {

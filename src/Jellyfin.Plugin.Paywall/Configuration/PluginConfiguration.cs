@@ -34,6 +34,8 @@ public class PluginConfiguration : BasePluginConfiguration
     ];
 
     public ManualPixSettings ManualPix { get; set; } = new();
+
+    public AsaasSettings Asaas { get; set; } = new();
 }
 
 public class PlanEntry
@@ -48,6 +50,16 @@ public class PlanEntry
     public int DurationDays { get; set; }
 
     public bool IsSubscription { get; set; }
+}
+
+public class AsaasSettings
+{
+    public string ApiKey { get; set; } = string.Empty;
+
+    /// <summary>Token que o Asaas devolve no header das notificações. Sem ele o webhook é recusado.</summary>
+    public string WebhookToken { get; set; } = string.Empty;
+
+    public bool UseSandbox { get; set; }
 }
 
 public class ManualPixSettings

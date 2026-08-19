@@ -2,7 +2,7 @@ using Paywall.Domain;
 using Paywall.Infrastructure.Storage;
 using Xunit;
 
-namespace Paywall.Domain.Tests;
+namespace Paywall.Tests;
 
 public class SqliteStorageTests : IDisposable
 {

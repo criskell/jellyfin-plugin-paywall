@@ -25,6 +25,7 @@ public sealed class PaywallServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IPaywallSettings>(s => s.GetRequiredService<PaywallConfigurationAdapter>());
         serviceCollection.AddSingleton<IPlanCatalog>(s => s.GetRequiredService<PaywallConfigurationAdapter>());
         serviceCollection.AddSingleton<IManualPixOptions>(s => s.GetRequiredService<PaywallConfigurationAdapter>());
+        serviceCollection.AddSingleton<IAsaasOptions>(s => s.GetRequiredService<PaywallConfigurationAdapter>());
         serviceCollection.AddSingleton<IWebhookEndpoints, PublicUrlWebhookEndpoints>();
 
         serviceCollection.AddSingleton(_ => new PaywallDatabase(Plugin.Instance!.DataPath));
@@ -35,6 +36,8 @@ public sealed class PaywallServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<ISubscriberDirectory, JellyfinSubscriberDirectory>();
 
         serviceCollection.AddSingleton<IPaymentProvider, ManualPixProvider>();
+        serviceCollection.AddHttpClient<AsaasPixProvider>();
+        serviceCollection.AddSingleton<IPaymentProvider>(s => s.GetRequiredService<AsaasPixProvider>());
         serviceCollection.AddSingleton<IPaymentProviderRegistry, PaymentProviderRegistry>();
 
         serviceCollection.AddSingleton<StartCheckout>();
