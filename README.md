@@ -1,5 +1,7 @@
 # Jellyfin Paywall
 
+[English](README.en.md)
+
 Plugin que só libera a biblioteca do Jellyfin para quem pagou. Aceita pagamento único ou
 assinatura, e não é casado com nenhum meio de pagamento.
 
@@ -53,10 +55,22 @@ O acesso é reavaliado quando a conta é criada, a cada início de sessão e de 
 tarefa agendada. Só a tarefa deixaria uma conta nova, ou um plano recém-vencido, liberados até
 a próxima passagem.
 
+Revogar corta na hora e ignora a tolerância, que existe para atraso de pagamento e não para
+quem foi cortado de propósito. E desligar o plugin devolve o acesso a todo mundo na próxima
+reavaliação: caso contrário, desativá-lo trancaria os usuários para fora permanentemente.
+
 ## Banco
 
 O plugin abre o próprio `paywall.db`, separado do `jellyfin.db`. O schema do servidor é dele
 e migra a cada release; dados de cobrança não podem ficar reféns disso.
+
+As migrações são uma lista em `PaywallDatabase`, aplicadas em ordem a partir da versão gravada
+no arquivo, cada uma dentro da própria transação. O roteiro só cresce no fim: alterar um script
+já aplicado não teria efeito em quem migrou.
+
+Pedido e concessão guardam as condições vendidas — plano, preço e duração — em vez de
+consultarem o catálogo na hora de liberar. Sem isso, renomear um plano depois do checkout faria
+o usuário pagar e nunca receber acesso, com o webhook falhando para sempre.
 
 ## Portal do usuário
 
