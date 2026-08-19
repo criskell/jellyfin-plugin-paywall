@@ -175,6 +175,81 @@
                     <input id="AsaasWebhookUrl" type="text" is="emby-input" readonly/>
                 </div>
 
+                <h2 class="sectionTitle" style="margin-top:2em;">Bitcoin e Lightning (BTCPay Server)</h2>
+                <div class="fieldDescription" style="margin-bottom:1em;">
+                    Sua própria instância, sem intermediário segurando o dinheiro e sem taxa de
+                    processamento. Cripto não permite débito automático, então os três métodos abaixo
+                    só atendem pagamento único: o usuário paga de novo a cada período.
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="BtcPayServerUrl">Endereço do servidor</label>
+                    <input id="BtcPayServerUrl" type="url" is="emby-input" placeholder="https://btcpay.seudominio.com"/>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="BtcPayStoreId">Identificador da loja</label>
+                    <input id="BtcPayStoreId" type="text" is="emby-input"/>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="BtcPayApiKey">Chave de API</label>
+                    <input id="BtcPayApiKey" type="password" is="emby-input" autocomplete="off"/>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="BtcPayWebhookSecret">Segredo do webhook</label>
+                    <input id="BtcPayWebhookSecret" type="password" is="emby-input" autocomplete="off"/>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="BtcPayWebhookUrl">URL para cadastrar no BTCPay</label>
+                    <input id="BtcPayWebhookUrl" type="text" is="emby-input" readonly/>
+                    <div class="fieldDescription">
+                        Cadastre em Store Settings &gt; Webhooks, assinando os eventos de fatura.
+                    </div>
+                </div>
+
+                <h2 class="sectionTitle" style="margin-top:2em;">Bitcoin e Lightning (OpenNode)</h2>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="OpenNodeApiKey">Chave de API</label>
+                    <input id="OpenNodeApiKey" type="password" is="emby-input" autocomplete="off"/>
+                    <div class="fieldDescription">
+                        A mesma chave assina as notificações, então não é preciso configurar segredo à parte.
+                    </div>
+                </div>
+
+                <div class="checkboxContainer">
+                    <label class="emby-checkbox-label">
+                        <input id="OpenNodeDevelopment" type="checkbox" is="emby-checkbox"/>
+                        <span>Usar ambiente de desenvolvimento</span>
+                    </label>
+                </div>
+
+                <h2 class="sectionTitle" style="margin-top:2em;">Criptomoedas (NOWPayments)</h2>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="NowPaymentsApiKey">Chave de API</label>
+                    <input id="NowPaymentsApiKey" type="password" is="emby-input" autocomplete="off"/>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="NowPaymentsIpnSecret">Segredo de IPN</label>
+                    <input id="NowPaymentsIpnSecret" type="password" is="emby-input" autocomplete="off"/>
+                    <div class="fieldDescription">
+                        Gerado no painel, em Payment Settings. Sem ele a notificação não é verificável
+                        e o método não aparece para o usuário.
+                    </div>
+                </div>
+
+                <div class="checkboxContainer">
+                    <label class="emby-checkbox-label">
+                        <input id="NowPaymentsSandbox" type="checkbox" is="emby-checkbox"/>
+                        <span>Usar ambiente de testes (sandbox)</span>
+                    </label>
+                </div>
+
                 <div style="margin-top:2em;">
                     <button is="emby-button" type="submit" class="raised button-submit block emby-button">
                         <span>Salvar</span>
@@ -296,6 +371,7 @@
                 var base = byId('PublicBaseUrl').value.trim().replace(/\/+$/, '');
                 byId('AsaasWebhookUrl').value = base ? base + '/Paywall/Webhook/asaas' : '';
                 byId('PortalUrl').value = base ? base + '/Paywall/Portal' : '';
+                byId('BtcPayWebhookUrl').value = base ? base + '/Paywall/Webhook/btcpay' : '';
             }
 
             function describeStatus(subscriber) {
@@ -416,6 +492,18 @@
                     byId('AsaasSandbox').checked = config.Asaas.UseSandbox;
                     byId('AsaasPayerTaxId').value = config.Asaas.PayerTaxId || '';
 
+                    byId('BtcPayServerUrl').value = config.BtcPay.ServerUrl || '';
+                    byId('BtcPayStoreId').value = config.BtcPay.StoreId || '';
+                    byId('BtcPayApiKey').value = config.BtcPay.ApiKey || '';
+                    byId('BtcPayWebhookSecret').value = config.BtcPay.WebhookSecret || '';
+
+                    byId('OpenNodeApiKey').value = config.OpenNode.ApiKey || '';
+                    byId('OpenNodeDevelopment').checked = config.OpenNode.UseDevelopment;
+
+                    byId('NowPaymentsApiKey').value = config.NowPayments.ApiKey || '';
+                    byId('NowPaymentsIpnSecret').value = config.NowPayments.IpnSecret || '';
+                    byId('NowPaymentsSandbox').checked = config.NowPayments.UseSandbox;
+
                     byId('PlansBody').innerHTML = '';
                     (config.Plans || []).forEach(addPlanRow);
                     refreshWebhookUrl();
@@ -463,6 +551,24 @@
                         WebhookToken: byId('AsaasWebhookToken').value.trim(),
                         PayerTaxId: byId('AsaasPayerTaxId').value.replace(/\D/g, ''),
                         UseSandbox: byId('AsaasSandbox').checked
+                    };
+
+                    config.BtcPay = {
+                        ServerUrl: byId('BtcPayServerUrl').value.trim(),
+                        StoreId: byId('BtcPayStoreId').value.trim(),
+                        ApiKey: byId('BtcPayApiKey').value.trim(),
+                        WebhookSecret: byId('BtcPayWebhookSecret').value.trim()
+                    };
+
+                    config.OpenNode = {
+                        ApiKey: byId('OpenNodeApiKey').value.trim(),
+                        UseDevelopment: byId('OpenNodeDevelopment').checked
+                    };
+
+                    config.NowPayments = {
+                        ApiKey: byId('NowPaymentsApiKey').value.trim(),
+                        IpnSecret: byId('NowPaymentsIpnSecret').value.trim(),
+                        UseSandbox: byId('NowPaymentsSandbox').checked
                     };
 
                     return ApiClient.updatePluginConfiguration(pluginUniqueId, config);

@@ -2,7 +2,6 @@ using Jellyfin.Plugin.Paywall.Configuration;
 using Paywall.Application;
 using Paywall.Application.Ports;
 using Paywall.Domain;
-using Paywall.Infrastructure.Providers;
 
 namespace Jellyfin.Plugin.Paywall.Jellyfin;
 
@@ -10,37 +9,15 @@ namespace Jellyfin.Plugin.Paywall.Jellyfin;
 /// Traduz a configuração do plugin, que é detalhe de entrega, para as portas do núcleo.
 /// Lê sempre a instância corrente, para que salvar no painel tenha efeito sem reiniciar.
 /// </summary>
-public sealed class PaywallConfigurationAdapter
-    : IPaywallSettings, IPlanCatalog, IManualPixOptions, IAsaasOptions
+public sealed class PaywallConfigurationAdapter : IPaywallSettings, IPlanCatalog
 {
-    private static PluginConfiguration Current =>
-        Plugin.Instance?.Configuration ?? new PluginConfiguration();
+    public TimeSpan GracePeriod => TimeSpan.FromDays(Math.Max(0, Settings.Current.GracePeriodDays));
 
-    public TimeSpan GracePeriod => TimeSpan.FromDays(Math.Max(0, Current.GracePeriodDays));
-
-    public IReadOnlyCollection<Plan> All => Current.Plans.Select(ToPlan).ToArray();
-
-    public string? PixKey => Blank(Current.ManualPix.PixKey);
-
-    public string? PayeeName => Blank(Current.ManualPix.PayeeName);
-
-    public string? PayeeCity => Blank(Current.ManualPix.PayeeCity);
-
-    public string? Instructions => Blank(Current.ManualPix.Instructions);
-
-    public string? ApiKey => Blank(Current.Asaas.ApiKey);
-
-    public string? WebhookToken => Blank(Current.Asaas.WebhookToken);
-
-    public bool UseSandbox => Current.Asaas.UseSandbox;
-
-    public string? DefaultTaxId => Blank(Current.Asaas.PayerTaxId);
-
-    public string? ApplicationName => "jellyfin-paywall";
+    public IReadOnlyCollection<Plan> All => Settings.Current.Plans.Select(ToPlan).ToArray();
 
     public Plan? Find(string planId)
     {
-        var entry = Current.Plans.FirstOrDefault(plan =>
+        var entry = Settings.Current.Plans.FirstOrDefault(plan =>
             string.Equals(plan.Id, planId, StringComparison.OrdinalIgnoreCase));
 
         return entry is null ? null : ToPlan(entry);
@@ -52,8 +29,6 @@ public sealed class PaywallConfigurationAdapter
         Money.Of(entry.PriceCents),
         entry.IsSubscription ? BillingMode.Recurring : BillingMode.OneTime,
         entry.DurationDays > 0 ? AccessDuration.OfDays(entry.DurationDays) : AccessDuration.Lifetime);
-
-    private static string? Blank(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }
 
 public sealed class PublicUrlWebhookEndpoints : IWebhookEndpoints

@@ -10,6 +10,7 @@ using Paywall.Application.Ports;
 using Paywall.Application.UseCases;
 using Paywall.Infrastructure;
 using Paywall.Infrastructure.Providers;
+using Paywall.Infrastructure.Providers.Crypto;
 using Paywall.Infrastructure.Storage;
 
 namespace Jellyfin.Plugin.Paywall;
@@ -27,8 +28,11 @@ public sealed class PaywallServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<PaywallConfigurationAdapter>();
         serviceCollection.AddSingleton<IPaywallSettings>(s => s.GetRequiredService<PaywallConfigurationAdapter>());
         serviceCollection.AddSingleton<IPlanCatalog>(s => s.GetRequiredService<PaywallConfigurationAdapter>());
-        serviceCollection.AddSingleton<IManualPixOptions>(s => s.GetRequiredService<PaywallConfigurationAdapter>());
-        serviceCollection.AddSingleton<IAsaasOptions>(s => s.GetRequiredService<PaywallConfigurationAdapter>());
+        serviceCollection.AddSingleton<IManualPixOptions, ManualPixOptions>();
+        serviceCollection.AddSingleton<IAsaasOptions, AsaasOptions>();
+        serviceCollection.AddSingleton<IBtcPayOptions, BtcPayOptions>();
+        serviceCollection.AddSingleton<INowPaymentsOptions, NowPaymentsOptions>();
+        serviceCollection.AddSingleton<IOpenNodeOptions, OpenNodeOptions>();
         serviceCollection.AddSingleton<IWebhookEndpoints, PublicUrlWebhookEndpoints>();
 
         serviceCollection.AddSingleton(_ => new PaywallDatabase(Plugin.Instance!.DataPath));
@@ -41,6 +45,12 @@ public sealed class PaywallServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IPaymentProvider, ManualPixProvider>();
         serviceCollection.AddHttpClient<AsaasPixProvider>();
         serviceCollection.AddSingleton<IPaymentProvider>(s => s.GetRequiredService<AsaasPixProvider>());
+        serviceCollection.AddHttpClient<BtcPayServerProvider>();
+        serviceCollection.AddSingleton<IPaymentProvider>(s => s.GetRequiredService<BtcPayServerProvider>());
+        serviceCollection.AddHttpClient<OpenNodeProvider>();
+        serviceCollection.AddSingleton<IPaymentProvider>(s => s.GetRequiredService<OpenNodeProvider>());
+        serviceCollection.AddHttpClient<NowPaymentsProvider>();
+        serviceCollection.AddSingleton<IPaymentProvider>(s => s.GetRequiredService<NowPaymentsProvider>());
         serviceCollection.AddSingleton<IPaymentProviderRegistry, PaymentProviderRegistry>();
 
         serviceCollection.AddSingleton<ApplyCurrentAccess>();

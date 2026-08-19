@@ -36,6 +36,12 @@ public class PluginConfiguration : BasePluginConfiguration
     public ManualPixSettings ManualPix { get; set; } = new();
 
     public AsaasSettings Asaas { get; set; } = new();
+
+    public BtcPaySettings BtcPay { get; set; } = new();
+
+    public NowPaymentsSettings NowPayments { get; set; } = new();
+
+    public OpenNodeSettings OpenNode { get; set; } = new();
 }
 
 public class PlanEntry
@@ -74,4 +80,32 @@ public class ManualPixSettings
     public string PayeeCity { get; set; } = string.Empty;
 
     public string Instructions { get; set; } = string.Empty;
+}
+
+public class BtcPaySettings
+{
+    /// <summary>Endereço da sua instância, por exemplo https://btcpay.seudominio.com.</summary>
+    public string ServerUrl { get; set; } = string.Empty;
+
+    public string StoreId { get; set; } = string.Empty;
+
+    public string ApiKey { get; set; } = string.Empty;
+
+    public string WebhookSecret { get; set; } = string.Empty;
+}
+
+public class NowPaymentsSettings
+{
+    public string ApiKey { get; set; } = string.Empty;
+
+    public string IpnSecret { get; set; } = string.Empty;
+
+    public bool UseSandbox { get; set; }
+}
+
+public class OpenNodeSettings
+{
+    public string ApiKey { get; set; } = string.Empty;
+
+    public bool UseDevelopment { get; set; }
 }

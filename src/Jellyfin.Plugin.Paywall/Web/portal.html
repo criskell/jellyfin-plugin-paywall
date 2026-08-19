@@ -75,9 +75,14 @@
         <h2>Pague com Pix</h2>
         <img class="qr" id="qrImage" alt="QR Code do Pix" hidden>
         <p class="muted" id="chargeMessage"></p>
-        <p class="muted">Copie o código abaixo e cole no aplicativo do seu banco.</p>
-        <p class="code" id="copyPaste"></p>
-        <button id="copyButton" type="button">Copiar código</button>
+        <a id="hostedLink" href="#" target="_blank" rel="noopener" hidden>
+            <button type="button">Abrir página de pagamento</button>
+        </a>
+        <div id="copyBlock">
+            <p class="muted">Copie o código abaixo e cole no seu aplicativo.</p>
+            <p class="code" id="copyPaste"></p>
+            <button id="copyButton" type="button">Copiar código</button>
+        </div>
         <p class="muted" id="waiting">Assim que o pagamento cair, o acesso é liberado sozinho nesta tela.</p>
         <button id="backButton" type="button" class="secondary">Voltar</button>
     </section>
@@ -260,7 +265,10 @@
                 el('chargeMessage').textContent = instructions.Message || '';
                 el('qrImage').hidden = !instructions.QrCodeImage;
                 el('qrImage').src = instructions.QrCodeImage || '';
-                el('copyButton').hidden = !instructions.CopyPasteCode;
+                el('copyBlock').hidden = !instructions.CopyPasteCode;
+                el('hostedLink').hidden = !instructions.RedirectUrl;
+                el('hostedLink').href = instructions.RedirectUrl || '#';
+                el('copyButton').textContent = 'Copiar código';
 
                 show('chargeView');
                 startPolling();

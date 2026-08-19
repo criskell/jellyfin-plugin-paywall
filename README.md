@@ -32,6 +32,17 @@ do pagador.
 A cobrança que a recorrência gera sozinha todo mês chega sem pedido aberto por aqui. Nesse
 caso o assinante é encontrado pelo id da recorrência e um pedido de renovação é criado.
 
+Em cripto há três: `btcpay` para instância própria de BTCPay Server, `opennode` para Bitcoin
+e Lightning hospedados, e `nowpayments` para centenas de moedas com página de checkout.
+Nenhum deles atende assinatura, porque cripto não tem débito automático: ninguém consegue
+puxar o pagamento do usuário todo mês. Em cripto, "mensal" é um plano de pagamento único de
+30 dias que o usuário renova pagando de novo, e o prazo restante não se perde.
+
+Cada um assina o webhook do seu jeito e isso fica no adaptador: BTCPay usa HMAC-SHA256 sobre
+o corpo cru, a OpenNode assina só o id da cobrança com a própria chave de API e notifica em
+formulário codificado, e a NOWPayments usa HMAC-SHA512 sobre o JSON com as chaves em ordem
+alfabética.
+
 ## Como o bloqueio funciona
 
 O núcleo decide liberar ou negar; `JellyfinAccessEnforcer` aplica via `UpdatePolicyAsync`, o
