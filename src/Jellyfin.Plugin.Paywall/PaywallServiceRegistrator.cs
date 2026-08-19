@@ -46,5 +46,6 @@ public sealed class PaywallServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<GrantAccessManually>();
         serviceCollection.AddSingleton<RevokeAccess>();
         serviceCollection.AddSingleton<GetAccessStatus>();
+        serviceCollection.AddSingleton<ListSubscribers>();
     }
 }

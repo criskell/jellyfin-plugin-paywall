@@ -6,8 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Jellyfin.Controller" Version="10.11.11" />
-    <PackageReference Include="Jellyfin.Database.Implementations" Version="10.11.11" />
+    <!-- ExcludeAssets=runtime: o servidor já carrega esses assemblies. Enviar cópias faz o
+         mesmo tipo existir duas vezes e o plugin falha ao carregar. -->
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.11" ExcludeAssets="runtime" />
+    <PackageReference Include="Jellyfin.Database.Implementations" Version="10.11.11" ExcludeAssets="runtime" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 

@@ -1,1 +1,459 @@
-<div data-role="page" class="page type-interior pluginConfigurationPage"></div>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <title>Paywall</title>
+</head>
+<body>
+<div id="PaywallConfigPage" data-role="page" class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-select,emby-checkbox">
+    <div data-role="content">
+        <div class="content-primary">
+
+            <form id="PaywallConfigForm">
+                <h2 class="sectionTitle">Geral</h2>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input id="Enabled" type="checkbox" is="emby-checkbox"/>
+                        <span>Exigir pagamento para acessar a biblioteca</span>
+                    </label>
+                    <div class="fieldDescription">
+                        Enquanto desligado nada é bloqueado, mesmo com pagamentos vencidos.
+                    </div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="PublicBaseUrl">Endereço público do servidor</label>
+                    <input id="PublicBaseUrl" type="url" is="emby-input" placeholder="https://midia.seudominio.com"/>
+                    <div class="fieldDescription">
+                        Base da URL que os provedores chamam para avisar de um pagamento. Precisa ser
+                        alcançável pela internet.
+                    </div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="GracePeriodDays">Tolerância após o vencimento (dias)</label>
+                    <input id="GracePeriodDays" type="number" is="emby-input" min="0" max="60"/>
+                    <div class="fieldDescription">
+                        Quantos dias o acesso sobrevive depois de vencer. Evita cortar alguém por um
+                        atraso de algumas horas.
+                    </div>
+                </div>
+
+                <h2 class="sectionTitle" style="margin-top:2em;">Como bloquear</h2>
+
+                <div class="selectContainer">
+                    <label class="selectLabel" for="EnforcementMode">Ao vencer</label>
+                    <select id="EnforcementMode" is="emby-select" class="emby-select-withcolor emby-select">
+                        <option value="RestrictLibraries">Esconder as bibliotecas pagas</option>
+                        <option value="DisableAccount">Desabilitar a conta</option>
+                    </select>
+                    <div class="fieldDescription">
+                        Esconder mantém o login funcionando e deixa visível só o que for gratuito.
+                        Desabilitar derruba a sessão aberta na hora e recusa novo login.
+                    </div>
+                </div>
+
+                <div class="selectContainer">
+                    <label class="selectLabel" for="FreeFolderIds">Bibliotecas gratuitas</label>
+                    <select id="FreeFolderIds" is="emby-select" multiple size="5"
+                            class="emby-select-withcolor emby-select"></select>
+                    <div class="fieldDescription">
+                        Continuam visíveis para quem não pagou. Só vale no modo de esconder bibliotecas.
+                    </div>
+                </div>
+
+                <div class="selectContainer">
+                    <label class="selectLabel" for="ExemptUserIds">Usuários isentos</label>
+                    <select id="ExemptUserIds" is="emby-select" multiple size="5"
+                            class="emby-select-withcolor emby-select"></select>
+                    <div class="fieldDescription">
+                        Nunca são bloqueados. Administradores já ficam de fora automaticamente.
+                    </div>
+                </div>
+
+                <h2 class="sectionTitle" style="margin-top:2em;">Planos</h2>
+                <div class="fieldDescription" style="margin-bottom:1em;">
+                    Duração zero significa acesso vitalício, e só faz sentido em pagamento único.
+                    Assinatura exige um provedor que saiba cobrar recorrência.
+                </div>
+
+                <table class="tblPlans" style="width:100%; border-collapse:collapse;">
+                    <thead>
+                    <tr style="text-align:left;">
+                        <th>Identificador</th>
+                        <th>Nome</th>
+                        <th>Preço (R$)</th>
+                        <th>Duração (dias)</th>
+                        <th>Assinatura</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody id="PlansBody"></tbody>
+                </table>
+
+                <button id="AddPlan" is="emby-button" type="button" class="raised block emby-button"
+                        style="margin-top:1em;">
+                    <span>Adicionar plano</span>
+                </button>
+
+                <h2 class="sectionTitle" style="margin-top:2em;">Pix manual</h2>
+                <div class="fieldDescription" style="margin-bottom:1em;">
+                    Gera o copia e cola direto da sua chave, sem intermediário. Não há como saber que o
+                    dinheiro entrou, então a liberação é feita por você na lista de assinantes.
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="PixKey">Chave Pix</label>
+                    <input id="PixKey" type="text" is="emby-input"/>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="PayeeName">Nome do recebedor</label>
+                    <input id="PayeeName" type="text" is="emby-input" maxlength="25"/>
+                    <div class="fieldDescription">Sem acento e no máximo 25 caracteres, como exige o BR Code.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="PayeeCity">Cidade do recebedor</label>
+                    <input id="PayeeCity" type="text" is="emby-input" maxlength="15"/>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="PixInstructions">Instruções ao pagador</label>
+                    <input id="PixInstructions" type="text" is="emby-input"/>
+                </div>
+
+                <h2 class="sectionTitle" style="margin-top:2em;">Asaas</h2>
+                <div class="fieldDescription" style="margin-bottom:1em;">
+                    Pix avulso e assinatura recorrente, com liberação automática. Sem o token de webhook
+                    o método nem aparece para o usuário, porque qualquer um poderia forjar um pagamento.
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="AsaasApiKey">Chave de API</label>
+                    <input id="AsaasApiKey" type="password" is="emby-input" autocomplete="off"/>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="AsaasWebhookToken">Token do webhook</label>
+                    <input id="AsaasWebhookToken" type="password" is="emby-input" autocomplete="off"/>
+                    <div class="fieldDescription">
+                        O mesmo que você configurar no painel do Asaas, enviado no cabeçalho
+                        <code>asaas-access-token</code>.
+                    </div>
+                </div>
+
+                <div class="checkboxContainer">
+                    <label class="emby-checkbox-label">
+                        <input id="AsaasSandbox" type="checkbox" is="emby-checkbox"/>
+                        <span>Usar ambiente de testes (sandbox)</span>
+                    </label>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="AsaasWebhookUrl">URL para cadastrar no Asaas</label>
+                    <input id="AsaasWebhookUrl" type="text" is="emby-input" readonly/>
+                </div>
+
+                <div style="margin-top:2em;">
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                        <span>Salvar</span>
+                    </button>
+                </div>
+            </form>
+
+            <h2 class="sectionTitle" style="margin-top:2.5em;">Assinantes</h2>
+            <div class="fieldDescription" style="margin-bottom:1em;">
+                Liberar registra o pagamento como se tivesse sido confirmado, para Pix recebido fora do
+                sistema. Revogar corta o acesso agora e encerra a recorrência, quando o provedor permite.
+            </div>
+
+            <table style="width:100%; border-collapse:collapse;">
+                <thead>
+                <tr style="text-align:left;">
+                    <th>Usuário</th>
+                    <th>Situação</th>
+                    <th>Vence em</th>
+                    <th>Ações</th>
+                </tr>
+                </thead>
+                <tbody id="SubscribersBody"></tbody>
+            </table>
+
+            <button id="SyncNow" is="emby-button" type="button" class="raised block emby-button"
+                    style="margin-top:1em;">
+                <span>Revisar acessos agora</span>
+            </button>
+
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var pluginUniqueId = '6f1c9a3e-4b52-4d1a-9b3f-2c8d5e7a1b40';
+            var page = document.querySelector('#PaywallConfigPage');
+
+            function byId(id) {
+                return page.querySelector('#' + id);
+            }
+
+            function centsToReais(cents) {
+                return ((cents || 0) / 100).toFixed(2);
+            }
+
+            function reaisToCents(text) {
+                var value = parseFloat(String(text).replace(',', '.'));
+                return isNaN(value) ? 0 : Math.round(value * 100);
+            }
+
+            function fillOptions(select, items, selectedIds) {
+                var chosen = (selectedIds || []).map(function (id) {
+                    return String(id).replace(/-/g, '').toLowerCase();
+                });
+
+                select.innerHTML = items.map(function (item) {
+                    var normalized = String(item.id).replace(/-/g, '').toLowerCase();
+                    var isChosen = chosen.indexOf(normalized) !== -1;
+                    return '<option value="' + item.id + '"' + (isChosen ? ' selected' : '') + '>'
+                        + escapeHtml(item.name) + '</option>';
+                }).join('');
+            }
+
+            function chosenValues(select) {
+                return Array.prototype.filter.call(select.options, function (option) {
+                    return option.selected;
+                }).map(function (option) {
+                    return option.value;
+                });
+            }
+
+            function escapeHtml(text) {
+                var holder = document.createElement('span');
+                holder.textContent = text == null ? '' : text;
+                return holder.innerHTML;
+            }
+
+            function addPlanRow(plan) {
+                var row = document.createElement('tr');
+                row.className = 'planRow';
+                row.innerHTML =
+                    '<td><input type="text" is="emby-input" class="planId" /></td>' +
+                    '<td><input type="text" is="emby-input" class="planName" /></td>' +
+                    '<td><input type="number" step="0.01" min="0" is="emby-input" class="planPrice" /></td>' +
+                    '<td><input type="number" min="0" is="emby-input" class="planDays" /></td>' +
+                    '<td><input type="checkbox" is="emby-checkbox" class="planSubscription" /></td>' +
+                    '<td><button is="emby-button" type="button" class="raised raised-mini removePlan">' +
+                    '<span>Remover</span></button></td>';
+
+                row.querySelector('.planId').value = plan.Id || '';
+                row.querySelector('.planName').value = plan.Name || '';
+                row.querySelector('.planPrice').value = centsToReais(plan.PriceCents);
+                row.querySelector('.planDays').value = plan.DurationDays || 0;
+                row.querySelector('.planSubscription').checked = !!plan.IsSubscription;
+
+                row.querySelector('.removePlan').addEventListener('click', function () {
+                    row.remove();
+                });
+
+                byId('PlansBody').appendChild(row);
+            }
+
+            function readPlans() {
+                return Array.prototype.map.call(page.querySelectorAll('.planRow'), function (row) {
+                    return {
+                        Id: row.querySelector('.planId').value.trim(),
+                        Name: row.querySelector('.planName').value.trim(),
+                        PriceCents: reaisToCents(row.querySelector('.planPrice').value),
+                        DurationDays: parseInt(row.querySelector('.planDays').value, 10) || 0,
+                        IsSubscription: row.querySelector('.planSubscription').checked
+                    };
+                }).filter(function (plan) {
+                    return plan.Id.length > 0;
+                });
+            }
+
+            function refreshWebhookUrl() {
+                var base = byId('PublicBaseUrl').value.trim().replace(/\/+$/, '');
+                byId('AsaasWebhookUrl').value = base ? base + '/Paywall/Webhook/asaas' : '';
+            }
+
+            function describeStatus(subscriber) {
+                if (!subscriber.HasAccess) {
+                    return 'sem acesso';
+                }
+
+                return subscriber.HasActiveSubscription ? 'assinante' : 'em dia';
+            }
+
+            function describeExpiry(subscriber) {
+                if (!subscriber.HasAccess && !subscriber.ExpiresAt) {
+                    return 'nunca pagou';
+                }
+
+                if (subscriber.IsLifetime) {
+                    return 'vitalício';
+                }
+
+                return subscriber.ExpiresAt ? new Date(subscriber.ExpiresAt).toLocaleString() : '-';
+            }
+
+            function planOptionsHtml() {
+                return readPlans().map(function (plan) {
+                    return '<option value="' + escapeHtml(plan.Id) + '">' + escapeHtml(plan.Name || plan.Id)
+                        + '</option>';
+                }).join('');
+            }
+
+            function loadSubscribers() {
+                return ApiClient.getJSON(ApiClient.getUrl('Paywall/Admin/Subscribers')).then(function (subscribers) {
+                    var body = byId('SubscribersBody');
+                    body.innerHTML = '';
+
+                    subscribers.forEach(function (subscriber) {
+                        var row = document.createElement('tr');
+                        row.innerHTML =
+                            '<td>' + escapeHtml(subscriber.Name) + '</td>' +
+                            '<td>' + describeStatus(subscriber) + '</td>' +
+                            '<td>' + describeExpiry(subscriber) + '</td>' +
+                            '<td><select is="emby-select" class="grantPlan emby-select">' + planOptionsHtml()
+                            + '</select> ' +
+                            '<button is="emby-button" type="button" class="raised raised-mini grant">' +
+                            '<span>Liberar</span></button> ' +
+                            '<button is="emby-button" type="button" class="raised raised-mini revoke">' +
+                            '<span>Revogar</span></button></td>';
+
+                        row.querySelector('.grant').addEventListener('click', function () {
+                            var planId = row.querySelector('.grantPlan').value;
+
+                            if (!planId) {
+                                Dashboard.alert('Cadastre e salve um plano antes de liberar acesso.');
+                                return;
+                            }
+
+                            send('Paywall/Admin/Users/' + subscriber.UserId + '/Grant', { PlanId: planId });
+                        });
+
+                        row.querySelector('.revoke').addEventListener('click', function () {
+                            send('Paywall/Admin/Users/' + subscriber.UserId + '/Revoke', null);
+                        });
+
+                        body.appendChild(row);
+                    });
+                });
+            }
+
+            function send(path, body) {
+                Dashboard.showLoadingMsg();
+
+                return ApiClient.ajax({
+                    type: 'POST',
+                    url: ApiClient.getUrl(path),
+                    data: body ? JSON.stringify(body) : null,
+                    contentType: 'application/json'
+                }).then(function () {
+                    return loadSubscribers();
+                }).then(function () {
+                    Dashboard.hideLoadingMsg();
+                }, function () {
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('A operação falhou. Veja o log do servidor.');
+                });
+            }
+
+            function loadLibrariesAndUsers(config) {
+                var libraries = ApiClient.getJSON(ApiClient.getUrl('Library/VirtualFolders')).then(function (folders) {
+                    fillOptions(byId('FreeFolderIds'), folders.map(function (folder) {
+                        return { id: folder.ItemId, name: folder.Name };
+                    }), config.FreeFolderIds);
+                });
+
+                var users = ApiClient.getUsers().then(function (all) {
+                    fillOptions(byId('ExemptUserIds'), all.map(function (user) {
+                        return { id: user.Id, name: user.Name };
+                    }), config.ExemptUserIds);
+                });
+
+                return Promise.all([libraries, users]);
+            }
+
+            page.addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+
+                ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
+                    byId('Enabled').checked = config.Enabled;
+                    byId('PublicBaseUrl').value = config.PublicBaseUrl || '';
+                    byId('GracePeriodDays').value = config.GracePeriodDays;
+                    byId('EnforcementMode').value = config.EnforcementMode;
+
+                    byId('PixKey').value = config.ManualPix.PixKey || '';
+                    byId('PayeeName').value = config.ManualPix.PayeeName || '';
+                    byId('PayeeCity').value = config.ManualPix.PayeeCity || '';
+                    byId('PixInstructions').value = config.ManualPix.Instructions || '';
+
+                    byId('AsaasApiKey').value = config.Asaas.ApiKey || '';
+                    byId('AsaasWebhookToken').value = config.Asaas.WebhookToken || '';
+                    byId('AsaasSandbox').checked = config.Asaas.UseSandbox;
+
+                    byId('PlansBody').innerHTML = '';
+                    (config.Plans || []).forEach(addPlanRow);
+                    refreshWebhookUrl();
+
+                    return loadLibrariesAndUsers(config);
+                }).then(loadSubscribers).then(function () {
+                    Dashboard.hideLoadingMsg();
+                }, function () {
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            byId('PublicBaseUrl').addEventListener('input', refreshWebhookUrl);
+
+            byId('AddPlan').addEventListener('click', function () {
+                addPlanRow({ DurationDays: 30 });
+            });
+
+            byId('SyncNow').addEventListener('click', function () {
+                send('Paywall/Admin/Sync', null);
+            });
+
+            byId('PaywallConfigForm').addEventListener('submit', function (event) {
+                event.preventDefault();
+                Dashboard.showLoadingMsg();
+
+                ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
+                    config.Enabled = byId('Enabled').checked;
+                    config.PublicBaseUrl = byId('PublicBaseUrl').value.trim();
+                    config.GracePeriodDays = parseInt(byId('GracePeriodDays').value, 10) || 0;
+                    config.EnforcementMode = byId('EnforcementMode').value;
+                    config.FreeFolderIds = chosenValues(byId('FreeFolderIds'));
+                    config.ExemptUserIds = chosenValues(byId('ExemptUserIds'));
+                    config.Plans = readPlans();
+
+                    config.ManualPix = {
+                        PixKey: byId('PixKey').value.trim(),
+                        PayeeName: byId('PayeeName').value.trim(),
+                        PayeeCity: byId('PayeeCity').value.trim(),
+                        Instructions: byId('PixInstructions').value.trim()
+                    };
+
+                    config.Asaas = {
+                        ApiKey: byId('AsaasApiKey').value.trim(),
+                        WebhookToken: byId('AsaasWebhookToken').value.trim(),
+                        UseSandbox: byId('AsaasSandbox').checked
+                    };
+
+                    return ApiClient.updatePluginConfiguration(pluginUniqueId, config);
+                }).then(function (result) {
+                    Dashboard.processPluginConfigurationUpdateResult(result);
+                    return loadSubscribers();
+                });
+
+                return false;
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>

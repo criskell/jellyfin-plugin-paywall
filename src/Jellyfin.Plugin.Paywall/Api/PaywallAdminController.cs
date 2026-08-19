@@ -14,8 +14,15 @@ public sealed record GrantAccessBody(string PlanId);
 public sealed class PaywallAdminController(
     GrantAccessManually grantAccess,
     RevokeAccess revokeAccess,
-    SyncAccess syncAccess) : ControllerBase
+    SyncAccess syncAccess,
+    ListSubscribers listSubscribers) : ControllerBase
 {
+    /// <summary>Situação de cada usuário sujeito ao paywall.</summary>
+    [HttpGet("Subscribers")]
+    public async Task<ActionResult<IReadOnlyCollection<SubscriberStatusView>>> Subscribers(
+        CancellationToken cancellationToken) =>
+        Ok(await listSubscribers.ExecuteAsync(cancellationToken).ConfigureAwait(false));
+
     /// <summary>Libera acesso sem cobrança, para Pix conferido no extrato ou cortesia.</summary>
     [HttpPost("Users/{userId:guid}/Grant")]
     public async Task<ActionResult> Grant(

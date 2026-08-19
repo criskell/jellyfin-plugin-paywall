@@ -46,6 +46,12 @@ um webhook se perde.
 O plugin abre o próprio `paywall.db`, separado do `jellyfin.db`. O schema do servidor é dele
 e migra a cada release; dados de cobrança não podem ficar reféns disso.
 
+## Configuração
+
+Tudo pelo painel, em Painel > Plugins > Paywall: planos, chaves, tolerância e modo de bloqueio.
+A página também mostra a URL exata para cadastrar no webhook do Asaas e lista os assinantes com
+a situação de cada um, que é por onde se confirma um Pix manual.
+
 ## Build
 
     ./build.sh
