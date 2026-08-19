@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Data.Sqlite;
 
 namespace Paywall.Infrastructure.Storage;
@@ -9,75 +10,13 @@ namespace Paywall.Infrastructure.Storage;
 /// </summary>
 public sealed class PaywallDatabase
 {
-    private const int CurrentSchemaVersion = 1;
-
-    private readonly string _connectionString;
-    private readonly SemaphoreSlim _bootstrapGate = new(1, 1);
-    private bool _ready;
-
-    public PaywallDatabase(string dataDirectory)
-    {
-        Directory.CreateDirectory(dataDirectory);
-
-        _connectionString = new SqliteConnectionStringBuilder
-        {
-            DataSource = Path.Combine(dataDirectory, "paywall.db"),
-            Pooling = true
-        }.ToString();
-    }
-
-    public async Task<SqliteConnection> OpenAsync(CancellationToken cancellationToken)
-    {
-        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
-
-        var connection = new SqliteConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-
-        return connection;
-    }
-
-    private async Task EnsureSchemaAsync(CancellationToken cancellationToken)
-    {
-        if (_ready)
-        {
-            return;
-        }
-
-        await _bootstrapGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-
-        try
-        {
-            if (_ready)
-            {
-                return;
-            }
-
-            await using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-            await ExecuteAsync(connection, SchemaScript, cancellationToken).ConfigureAwait(false);
-
-            _ready = true;
-        }
-        finally
-        {
-            _bootstrapGate.Release();
-        }
-    }
-
-    private static async Task ExecuteAsync(SqliteConnection connection, string sql, CancellationToken cancellationToken)
-    {
-        await using var command = connection.CreateCommand();
-        command.CommandText = sql;
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-    }
-
     /// <summary>
-    /// WAL deixa a varredura de vencimentos ler enquanto um webhook grava.
+    /// Cada posição é uma versão do schema, aplicada em ordem a partir de onde o arquivo parou.
+    /// Roteiro só cresce no fim: alterar um já aplicado não teria efeito em quem migrou.
     /// </summary>
-    private static string SchemaScript => $"""
-        PRAGMA journal_mode = WAL;
-        PRAGMA foreign_keys = ON;
-
+    private static readonly string[] Migrations =
+    [
+        """
         CREATE TABLE IF NOT EXISTS orders (
             id                  TEXT    NOT NULL PRIMARY KEY,
             user_id             TEXT    NOT NULL,
@@ -100,11 +39,97 @@ public sealed class PaywallDatabase
             expires_at              TEXT NULL,
             subscription_reference  TEXT NULL
         );
+        """,
+
+        """
+        ALTER TABLE access_grants ADD COLUMN subscription_provider TEXT NULL;
 
         CREATE INDEX IF NOT EXISTS ix_grants_subscription
-            ON access_grants (subscription_reference)
+            ON access_grants (subscription_provider, subscription_reference)
             WHERE subscription_reference IS NOT NULL;
+        """
+    ];
 
-        PRAGMA user_version = {CurrentSchemaVersion};
-        """;
+    private readonly string _connectionString;
+    private readonly SemaphoreSlim _migrationGate = new(1, 1);
+    private bool _migrated;
+
+    public PaywallDatabase(string dataDirectory)
+    {
+        Directory.CreateDirectory(dataDirectory);
+
+        _connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = Path.Combine(dataDirectory, "paywall.db"),
+            Pooling = true
+        }.ToString();
+    }
+
+    public async Task<SqliteConnection> OpenAsync(CancellationToken cancellationToken)
+    {
+        await MigrateAsync(cancellationToken).ConfigureAwait(false);
+
+        var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        return connection;
+    }
+
+    private async Task MigrateAsync(CancellationToken cancellationToken)
+    {
+        if (_migrated)
+        {
+            return;
+        }
+
+        await _migrationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            if (_migrated)
+            {
+                return;
+            }
+
+            await using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+            // WAL deixa a varredura de vencimentos ler enquanto um webhook grava.
+            await ExecuteAsync(connection, "PRAGMA journal_mode = WAL;", cancellationToken).ConfigureAwait(false);
+
+            var applied = await ReadVersionAsync(connection, cancellationToken).ConfigureAwait(false);
+
+            for (var version = applied; version < Migrations.Length; version++)
+            {
+                await ExecuteAsync(connection, Migrations[version], cancellationToken).ConfigureAwait(false);
+
+                var next = (version + 1).ToString(CultureInfo.InvariantCulture);
+                await ExecuteAsync(connection, $"PRAGMA user_version = {next};", cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            _migrated = true;
+        }
+        finally
+        {
+            _migrationGate.Release();
+        }
+    }
+
+    private static async Task<int> ReadVersionAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA user_version;";
+
+        var value = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+
+        return value is null ? 0 : Convert.ToInt32(value, CultureInfo.InvariantCulture);
+    }
+
+    private static async Task ExecuteAsync(SqliteConnection connection, string sql, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
 }

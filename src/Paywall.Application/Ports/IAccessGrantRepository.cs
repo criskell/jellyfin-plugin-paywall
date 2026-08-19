@@ -10,7 +10,7 @@ public interface IAccessGrantRepository
     /// Acha o assinante pela recorrência. É como uma renovação, que chega sem pedido aberto,
     /// descobre de quem é.
     /// </summary>
-    Task<AccessGrant?> FindBySubscriptionAsync(string subscriptionReference, CancellationToken cancellationToken);
+    Task<AccessGrant?> FindBySubscriptionAsync(Subscription subscription, CancellationToken cancellationToken);
 
     Task SaveAsync(AccessGrant grant, CancellationToken cancellationToken);
 }

@@ -24,6 +24,15 @@
                 </div>
 
                 <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="PortalUrl">Endereço do portal de pagamento</label>
+                    <input id="PortalUrl" type="text" is="emby-input" readonly/>
+                    <div class="fieldDescription">
+                        Página onde quem está sem acesso entra, escolhe o plano e recebe o Pix.
+                        Divulgue este endereço aos usuários.
+                    </div>
+                </div>
+
+                <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="PublicBaseUrl">Endereço público do servidor</label>
                     <input id="PublicBaseUrl" type="url" is="emby-input" placeholder="https://midia.seudominio.com"/>
                     <div class="fieldDescription">
@@ -142,6 +151,15 @@
                     <div class="fieldDescription">
                         O mesmo que você configurar no painel do Asaas, enviado no cabeçalho
                         <code>asaas-access-token</code>.
+                    </div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="AsaasPayerTaxId">CPF ou CNPJ do pagador</label>
+                    <input id="AsaasPayerTaxId" type="text" is="emby-input" placeholder="Somente números"/>
+                    <div class="fieldDescription">
+                        O Asaas não emite cobrança sem documento. Este é usado em todas as cobranças,
+                        para não ser preciso pedir o CPF de cada usuário.
                     </div>
                 </div>
 
@@ -277,6 +295,7 @@
             function refreshWebhookUrl() {
                 var base = byId('PublicBaseUrl').value.trim().replace(/\/+$/, '');
                 byId('AsaasWebhookUrl').value = base ? base + '/Paywall/Webhook/asaas' : '';
+                byId('PortalUrl').value = base ? base + '/Paywall/Portal' : '';
             }
 
             function describeStatus(subscriber) {
@@ -395,6 +414,7 @@
                     byId('AsaasApiKey').value = config.Asaas.ApiKey || '';
                     byId('AsaasWebhookToken').value = config.Asaas.WebhookToken || '';
                     byId('AsaasSandbox').checked = config.Asaas.UseSandbox;
+                    byId('AsaasPayerTaxId').value = config.Asaas.PayerTaxId || '';
 
                     byId('PlansBody').innerHTML = '';
                     (config.Plans || []).forEach(addPlanRow);
@@ -441,6 +461,7 @@
                     config.Asaas = {
                         ApiKey: byId('AsaasApiKey').value.trim(),
                         WebhookToken: byId('AsaasWebhookToken').value.trim(),
+                        PayerTaxId: byId('AsaasPayerTaxId').value.replace(/\D/g, ''),
                         UseSandbox: byId('AsaasSandbox').checked
                     };
 

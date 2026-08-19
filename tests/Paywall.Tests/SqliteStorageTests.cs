@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Paywall.Domain;
 using Paywall.Infrastructure.Storage;
 using Xunit;
@@ -66,6 +67,60 @@ public class SqliteStorageTests : IDisposable
         var loaded = await repository.FindAsync(grant.UserId, CancellationToken.None);
 
         Assert.Equal(Now.AddDays(60), loaded?.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task RecorrenciaEncontraOAssinantePeloProvedorEReferencia()
+    {
+        var repository = new SqliteAccessGrantRepository(Database);
+        var plan = new Plan("mensal", "Mensal", Money.Of(1990), BillingMode.Recurring, AccessDuration.OfDays(30));
+        var grant = AccessGrant.NeverPaid(Guid.NewGuid());
+        grant.Extend(plan, Now);
+        grant.AttachSubscription(new Subscription("asaas", "sub_42"));
+        await repository.SaveAsync(grant, CancellationToken.None);
+
+        var found = await repository.FindBySubscriptionAsync(
+            new Subscription("asaas", "sub_42"),
+            CancellationToken.None);
+
+        Assert.Equal(grant.UserId, found?.UserId);
+        Assert.Null(await repository.FindBySubscriptionAsync(
+            new Subscription("outro", "sub_42"),
+            CancellationToken.None));
+    }
+
+    /// <summary>
+    /// Banco escrito pela versão anterior precisa ganhar a coluna nova sem perder concessões.
+    /// </summary>
+    [Fact]
+    public async Task BancoNaVersaoAnteriorEMigradoSemPerderDados()
+    {
+        Directory.CreateDirectory(_directory);
+        var userId = Guid.NewGuid();
+
+        await using (var connection = new SqliteConnection("Data Source=" + Path.Combine(_directory, "paywall.db")))
+        {
+            await connection.OpenAsync(CancellationToken.None);
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE access_grants (
+                    user_id                 TEXT NOT NULL PRIMARY KEY,
+                    plan_id                 TEXT NULL,
+                    expires_at              TEXT NULL,
+                    subscription_reference  TEXT NULL
+                );
+                INSERT INTO access_grants (user_id, plan_id, expires_at)
+                VALUES ('$USER', 'mensal', '2026-09-17T12:00:00.0000000+00:00');
+                PRAGMA user_version = 1;
+                """.Replace("$USER", userId.ToString("N"));
+            await command.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+
+        var repository = new SqliteAccessGrantRepository(Database);
+        var migrated = await repository.FindAsync(userId, CancellationToken.None);
+
+        Assert.Equal("mensal", migrated?.PlanId);
+        Assert.Null(migrated?.Subscription);
     }
 
     public void Dispose()

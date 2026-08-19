@@ -1,25 +1,17 @@
 using Paywall.Application.Ports;
-using Paywall.Domain;
 
 namespace Paywall.Application.UseCases;
 
 public sealed record AccessSyncReport(int Allowed, int Denied);
 
 /// <summary>
-/// Reconcilia o estado real do servidor com os vencimentos. É o que corta quem parou de pagar,
-/// e o que conserta divergências se um webhook se perdeu.
+/// Rede de segurança: reconcilia todo mundo com os vencimentos, o que também conserta o
+/// estado quando um webhook se perde.
 /// </summary>
-public sealed class SyncAccess(
-    ISubscriberDirectory subscribers,
-    IAccessGrantRepository grants,
-    IAccessEnforcer enforcer,
-    IPaywallSettings settings,
-    IClock clock)
+public sealed class SyncAccess(ISubscriberDirectory subscribers, ApplyCurrentAccess applyAccess)
 {
     public async Task<AccessSyncReport> ExecuteAsync(CancellationToken cancellationToken)
     {
-        var now = clock.UtcNow;
-        var grace = settings.GracePeriod;
         var everyone = await subscribers.ListAsync(cancellationToken).ConfigureAwait(false);
 
         var allowed = 0;
@@ -29,17 +21,14 @@ public sealed class SyncAccess(
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var grant = await grants.FindAsync(subscriber.UserId, cancellationToken).ConfigureAwait(false)
-                        ?? AccessGrant.NeverPaid(subscriber.UserId);
-
-            var decision = grant.IsActiveAt(now, grace) ? AccessDecision.Allow : AccessDecision.Deny;
-            await enforcer.ApplyAsync(subscriber.UserId, decision, cancellationToken).ConfigureAwait(false);
+            var decision = await applyAccess.ExecuteAsync(subscriber.UserId, cancellationToken)
+                .ConfigureAwait(false);
 
             if (decision == AccessDecision.Allow)
             {
                 allowed++;
             }
-            else
+            else if (decision == AccessDecision.Deny)
             {
                 denied++;
             }

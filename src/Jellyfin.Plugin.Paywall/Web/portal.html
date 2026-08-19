@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Acesso</title>
+    <style>
+        :root { color-scheme: dark; }
+        body {
+            margin: 0; padding: 2rem 1rem; background: #101418; color: #e8eaed;
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.5;
+        }
+        main { max-width: 34rem; margin: 0 auto; }
+        h1 { font-size: 1.5rem; margin: 0 0 1.5rem; }
+        h2 { font-size: 1.05rem; margin: 2rem 0 .75rem; font-weight: 600; }
+        label { display: block; margin: .75rem 0 .25rem; font-size: .85rem; color: #9aa0a6; }
+        input, select, button {
+            width: 100%; padding: .7rem; border-radius: .4rem; border: 1px solid #303945;
+            background: #1a1f26; color: inherit; font: inherit; box-sizing: border-box;
+        }
+        button { background: #2b6cb0; border-color: #2b6cb0; cursor: pointer; margin-top: 1rem; }
+        button:hover { background: #2c7cd0; }
+        button.secondary { background: transparent; border-color: #303945; }
+        .card { background: #1a1f26; border: 1px solid #262d36; border-radius: .5rem; padding: 1rem; }
+        .plan { display: flex; justify-content: space-between; gap: 1rem; padding: .6rem 0; }
+        .plan + .plan { border-top: 1px solid #262d36; }
+        .price { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .muted { color: #9aa0a6; font-size: .85rem; }
+        .code {
+            font-family: ui-monospace, monospace; font-size: .75rem; word-break: break-all;
+            background: #0c0f13; border: 1px solid #262d36; border-radius: .4rem; padding: .75rem;
+        }
+        .ok { color: #7ee2a8; }
+        .warn { color: #f0a868; }
+        .error { color: #f08a8a; min-height: 1.25rem; }
+        img.qr { width: 15rem; height: 15rem; display: block; margin: 1rem auto; border-radius: .4rem; }
+        [hidden] { display: none !important; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Acesso à biblioteca</h1>
+    <p class="error" id="error"></p>
+
+    <section id="loginView">
+        <div class="card">
+            <label for="username">Usuário</label>
+            <input id="username" type="text" autocomplete="username">
+            <label for="password">Senha</label>
+            <input id="password" type="password" autocomplete="current-password">
+            <button id="loginButton" type="button">Entrar</button>
+        </div>
+    </section>
+
+    <section id="statusView" hidden>
+        <div class="card">
+            <p id="statusLine"></p>
+            <p class="muted" id="expiryLine"></p>
+        </div>
+
+        <div id="plansSection" hidden>
+            <h2>Planos</h2>
+            <div class="card" id="plans"></div>
+
+            <label for="method">Como pagar</label>
+            <select id="method"></select>
+
+            <button id="payButton" type="button">Gerar cobrança</button>
+        </div>
+
+        <button id="logoutButton" type="button" class="secondary">Sair</button>
+    </section>
+
+    <section id="chargeView" hidden>
+        <h2>Pague com Pix</h2>
+        <img class="qr" id="qrImage" alt="QR Code do Pix" hidden>
+        <p class="muted" id="chargeMessage"></p>
+        <p class="muted">Copie o código abaixo e cole no aplicativo do seu banco.</p>
+        <p class="code" id="copyPaste"></p>
+        <button id="copyButton" type="button">Copiar código</button>
+        <p class="muted" id="waiting">Assim que o pagamento cair, o acesso é liberado sozinho nesta tela.</p>
+        <button id="backButton" type="button" class="secondary">Voltar</button>
+    </section>
+</main>
+
+<script>
+    (function () {
+        var token = null;
+        var selectedPlan = null;
+        var pollTimer = null;
+
+        var authorization = 'MediaBrowser Client="Paywall", Device="Portal", DeviceId="paywall-portal", Version="1.0.0"';
+
+        // A página é servida em /Paywall/Portal, e o servidor pode estar sob um caminho base.
+        var apiRoot = window.location.pathname.replace(/\/Paywall\/Portal\/?$/i, '') + '/';
+
+        function el(id) {
+            return document.getElementById(id);
+        }
+
+        function show(view) {
+            ['loginView', 'statusView', 'chargeView'].forEach(function (name) {
+                el(name).hidden = name !== view;
+            });
+        }
+
+        function fail(message) {
+            el('error').textContent = message || '';
+        }
+
+        function request(path, options) {
+            var settings = options || {};
+            var headers = { 'Authorization': token ? authorization + ', Token="' + token + '"' : authorization };
+
+            if (settings.body) {
+                headers['Content-Type'] = 'application/json';
+            }
+
+            return fetch(apiRoot + path, {
+                method: settings.method || 'GET',
+                headers: headers,
+                body: settings.body ? JSON.stringify(settings.body) : undefined
+            }).then(function (response) {
+                if (!response.ok) {
+                    return response.json().catch(function () {
+                        return {};
+                    }).then(function (payload) {
+                        throw new Error(payload.error || 'A operação falhou.');
+                    });
+                }
+
+                return response.status === 204 ? null : response.json();
+            });
+        }
+
+        function money(plan) {
+            return plan.Price.toFixed(2).replace('.', ',') + ' ' + plan.Currency;
+        }
+
+        function renderStatus(status) {
+            var hasAccess = status.HasAccess;
+
+            el('statusLine').innerHTML = hasAccess
+                ? '<span class="ok">Acesso liberado.</span>'
+                : '<span class="warn">Sem acesso no momento.</span>';
+
+            el('expiryLine').textContent = describeExpiry(status);
+            el('plansSection').hidden = hasAccess && status.IsLifetime;
+
+            renderPlans(status.Plans);
+            renderMethods(status.PaymentMethods);
+            show('statusView');
+
+            return hasAccess;
+        }
+
+        function describeExpiry(status) {
+            if (status.IsLifetime) {
+                return 'Acesso vitalício.';
+            }
+
+            if (!status.ExpiresAt) {
+                return 'Nenhum pagamento registrado ainda.';
+            }
+
+            var when = new Date(status.ExpiresAt).toLocaleString();
+            return status.HasAccess ? 'Válido até ' + when + '.' : 'Venceu em ' + when + '.';
+        }
+
+        function renderPlans(plans) {
+            selectedPlan = plans.length ? plans[0].Id : null;
+
+            el('plans').innerHTML = plans.map(function (plan) {
+                return '<label class="plan"><span><input type="radio" name="plan" value="' + plan.Id + '"'
+                    + (plan.Id === selectedPlan ? ' checked' : '') + '> ' + plan.Name
+                    + '<br><span class="muted">' + plan.BillingMode + ', ' + plan.Access + '</span></span>'
+                    + '<span class="price">' + money(plan) + '</span></label>';
+            }).join('') || '<p class="muted">Nenhum plano disponível. Fale com o administrador.</p>';
+
+            Array.prototype.forEach.call(el('plans').querySelectorAll('input[name=plan]'), function (radio) {
+                radio.addEventListener('change', function () {
+                    selectedPlan = radio.value;
+                });
+            });
+        }
+
+        function renderMethods(methods) {
+            el('method').innerHTML = methods.map(function (method) {
+                return '<option value="' + method.Key + '">' + method.DisplayName + '</option>';
+            }).join('');
+
+            el('payButton').disabled = methods.length === 0;
+
+            if (!methods.length) {
+                fail('Nenhum meio de pagamento configurado. Fale com o administrador.');
+            }
+        }
+
+        function loadStatus() {
+            return request('Paywall/Status').then(renderStatus);
+        }
+
+        function stopPolling() {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+        }
+
+        function startPolling() {
+            stopPolling();
+
+            pollTimer = setInterval(function () {
+                request('Paywall/Status').then(function (status) {
+                    if (status.HasAccess) {
+                        stopPolling();
+                        renderStatus(status);
+                    }
+                }).catch(function () {
+                    // Uma consulta perdida não interrompe a espera.
+                });
+            }, 5000);
+        }
+
+        el('loginButton').addEventListener('click', function () {
+            fail('');
+
+            request('Users/AuthenticateByName', {
+                method: 'POST',
+                body: { Username: el('username').value, Pw: el('password').value }
+            }).then(function (result) {
+                token = result.AccessToken;
+                el('password').value = '';
+                return loadStatus();
+            }).catch(function () {
+                fail('Usuário ou senha incorretos.');
+            });
+        });
+
+        el('logoutButton').addEventListener('click', function () {
+            token = null;
+            stopPolling();
+            show('loginView');
+        });
+
+        el('payButton').addEventListener('click', function () {
+            fail('');
+
+            if (!selectedPlan) {
+                return;
+            }
+
+            request('Paywall/Checkout', {
+                method: 'POST',
+                body: { PlanId: selectedPlan, ProviderKey: el('method').value }
+            }).then(function (ticket) {
+                var instructions = ticket.Instructions;
+
+                el('copyPaste').textContent = instructions.CopyPasteCode || '';
+                el('chargeMessage').textContent = instructions.Message || '';
+                el('qrImage').hidden = !instructions.QrCodeImage;
+                el('qrImage').src = instructions.QrCodeImage || '';
+                el('copyButton').hidden = !instructions.CopyPasteCode;
+
+                show('chargeView');
+                startPolling();
+            }).catch(function (failure) {
+                fail(failure.message);
+            });
+        });
+
+        el('copyButton').addEventListener('click', function () {
+            navigator.clipboard.writeText(el('copyPaste').textContent).then(function () {
+                el('copyButton').textContent = 'Copiado';
+            });
+        });
+
+        el('backButton').addEventListener('click', function () {
+            stopPolling();
+            loadStatus().catch(function () {
+                show('loginView');
+            });
+        });
+    })();
+</script>
+</body>
+</html>

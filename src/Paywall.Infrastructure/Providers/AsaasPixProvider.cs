@@ -17,6 +17,12 @@ public interface IAsaasOptions
 
     bool UseSandbox { get; }
 
+    /// <summary>
+    /// CPF ou CNPJ usado quando o pagador não informa o próprio. O Asaas exige o documento
+    /// para emitir cobrança, e num servidor doméstico raramente vale pedir isso a cada usuário.
+    /// </summary>
+    string? DefaultTaxId { get; }
+
     string? ApplicationName { get; }
 }
 
@@ -122,15 +128,18 @@ public sealed class AsaasPixProvider(HttpClient http, IAsaasOptions options, ICl
             return knownId;
         }
 
-        if (string.IsNullOrWhiteSpace(payer.TaxId))
+        var taxId = Blank(payer.TaxId) ?? Blank(options.DefaultTaxId);
+
+        if (taxId is null)
         {
-            throw new PaywallException("O Asaas exige CPF ou CNPJ para emitir a cobrança.");
+            throw new PaywallException(
+                "O Asaas exige CPF ou CNPJ. Preencha o documento padrão na configuração do plugin.");
         }
 
         var created = await SendAsync(
             HttpMethod.Post,
             "/customers",
-            new { name = payer.Name, cpfCnpj = payer.TaxId, email = payer.Email, externalReference = reference },
+            new { name = payer.Name, cpfCnpj = taxId, email = payer.Email, externalReference = reference },
             cancellationToken).ConfigureAwait(false);
 
         return Text(created, "id") ?? throw new PaywallException("O Asaas não devolveu o cliente criado.");
@@ -247,6 +256,8 @@ public sealed class AsaasPixProvider(HttpClient http, IAsaasOptions options, ICl
     };
 
     private string Today => clock.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     private static string? Text(JsonElement element, string property) =>
         element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String

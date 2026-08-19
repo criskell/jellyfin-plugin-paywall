@@ -88,6 +88,8 @@ public class AsaasWebhookTests
 
         public bool UseSandbox => true;
 
+        public string? DefaultTaxId => null;
+
         public string? ApplicationName => "testes";
     }
 }

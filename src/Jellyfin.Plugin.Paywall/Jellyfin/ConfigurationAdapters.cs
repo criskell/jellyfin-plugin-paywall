@@ -34,6 +34,8 @@ public sealed class PaywallConfigurationAdapter
 
     public bool UseSandbox => Current.Asaas.UseSandbox;
 
+    public string? DefaultTaxId => Blank(Current.Asaas.PayerTaxId);
+
     public string? ApplicationName => "jellyfin-paywall";
 
     public Plan? Find(string planId)

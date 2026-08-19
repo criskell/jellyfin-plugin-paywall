@@ -1,11 +1,12 @@
 using Paywall.Application.Payments;
 using Paywall.Application.Ports;
+using Paywall.Domain;
 
 namespace Paywall.Application.UseCases;
 
 /// <summary>
-/// Corta o acesso na hora e, quando o provedor permite, encerra também a recorrência
-/// para o usuário não continuar sendo debitado.
+/// Corta o acesso na hora e encerra a recorrência no provedor que a emitiu, para o usuário
+/// não continuar sendo debitado por algo que não pode mais assistir.
 /// </summary>
 public sealed class RevokeAccess(
     IAccessGrantRepository grants,
@@ -23,7 +24,10 @@ public sealed class RevokeAccess(
             return;
         }
 
-        await TryCancelSubscriptionAsync(grant.SubscriptionReference, cancellationToken).ConfigureAwait(false);
+        if (grant.Subscription is { } subscription)
+        {
+            await CancelAsync(subscription, cancellationToken).ConfigureAwait(false);
+        }
 
         grant.Revoke(clock.UtcNow);
 
@@ -31,16 +35,27 @@ public sealed class RevokeAccess(
         await enforcer.ApplyAsync(userId, AccessDecision.Deny, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task TryCancelSubscriptionAsync(string? subscriptionReference, CancellationToken cancellationToken)
+    /// <summary>
+    /// Só o provedor que emitiu a recorrência sabe cancelá-la. Se ele não está mais
+    /// configurado, o acesso é cortado assim mesmo em vez de a revogação inteira falhar.
+    /// </summary>
+    private async Task CancelAsync(Subscription subscription, CancellationToken cancellationToken)
     {
-        if (subscriptionReference is null)
+        IPaymentProvider provider;
+
+        try
+        {
+            provider = providers.Resolve(subscription.ProviderKey);
+        }
+        catch (PaymentProviderNotFoundException)
         {
             return;
         }
 
-        foreach (var provider in providers.Available.OfType<ISupportsSubscriptionCancellation>())
+        if (provider is ISupportsSubscriptionCancellation cancellable)
         {
-            await provider.CancelSubscriptionAsync(subscriptionReference, cancellationToken).ConfigureAwait(false);
+            await cancellable.CancelSubscriptionAsync(subscription.Reference, cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 }

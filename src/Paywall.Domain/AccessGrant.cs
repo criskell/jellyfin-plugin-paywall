@@ -5,12 +5,12 @@ namespace Paywall.Domain;
 /// </summary>
 public sealed class AccessGrant
 {
-    private AccessGrant(Guid userId, string? planId, DateTimeOffset? expiresAt, string? subscriptionReference)
+    private AccessGrant(Guid userId, string? planId, DateTimeOffset? expiresAt, Subscription? subscription)
     {
         UserId = userId;
         PlanId = planId;
         ExpiresAt = expiresAt;
-        SubscriptionReference = subscriptionReference;
+        Subscription = subscription;
     }
 
     public Guid UserId { get; }
@@ -20,8 +20,8 @@ public sealed class AccessGrant
     /// <summary>Nulo com <see cref="PlanId"/> preenchido significa acesso vitalício.</summary>
     public DateTimeOffset? ExpiresAt { get; private set; }
 
-    /// <summary>Identificador da recorrência no provedor, quando o plano é assinatura.</summary>
-    public string? SubscriptionReference { get; private set; }
+    /// <summary>Recorrência que sustenta este acesso, quando o plano é assinatura.</summary>
+    public Subscription? Subscription { get; private set; }
 
     public static AccessGrant NeverPaid(Guid userId) => new(userId, null, null, null);
 
@@ -29,7 +29,7 @@ public sealed class AccessGrant
         Guid userId,
         string? planId,
         DateTimeOffset? expiresAt,
-        string? subscriptionReference) => new(userId, planId, expiresAt, subscriptionReference);
+        Subscription? subscription) => new(userId, planId, expiresAt, subscription);
 
     public bool IsActiveAt(DateTimeOffset instant, TimeSpan grace)
     {
@@ -60,12 +60,12 @@ public sealed class AccessGrant
         ExpiresAt = startsFrom.AddDays(plan.Duration.Days!.Value);
     }
 
-    public void AttachSubscription(string? subscriptionReference) => SubscriptionReference = subscriptionReference;
+    public void AttachSubscription(Subscription? subscription) => Subscription = subscription;
 
     /// <summary>Corta o acesso imediatamente, sem apagar o histórico de plano.</summary>
     public void Revoke(DateTimeOffset at)
     {
         ExpiresAt = at;
-        SubscriptionReference = null;
+        Subscription = null;
     }
 }

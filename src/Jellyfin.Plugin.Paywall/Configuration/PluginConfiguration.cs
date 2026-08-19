@@ -60,6 +60,9 @@ public class AsaasSettings
     public string WebhookToken { get; set; } = string.Empty;
 
     public bool UseSandbox { get; set; }
+
+    /// <summary>CPF ou CNPJ usado em toda cobrança, já que o Asaas não emite sem documento.</summary>
+    public string PayerTaxId { get; set; } = string.Empty;
 }
 
 public class ManualPixSettings

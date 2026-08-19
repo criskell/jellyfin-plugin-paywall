@@ -1,4 +1,7 @@
+using Jellyfin.Data.Events.Users;
+using Jellyfin.Plugin.Paywall.Events;
 using Jellyfin.Plugin.Paywall.Jellyfin;
+using MediaBrowser.Controller.Events;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +43,7 @@ public sealed class PaywallServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IPaymentProvider>(s => s.GetRequiredService<AsaasPixProvider>());
         serviceCollection.AddSingleton<IPaymentProviderRegistry, PaymentProviderRegistry>();
 
+        serviceCollection.AddSingleton<ApplyCurrentAccess>();
         serviceCollection.AddSingleton<StartCheckout>();
         serviceCollection.AddSingleton<ConfirmPayment>();
         serviceCollection.AddSingleton<SyncAccess>();
@@ -47,5 +51,8 @@ public sealed class PaywallServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<RevokeAccess>();
         serviceCollection.AddSingleton<GetAccessStatus>();
         serviceCollection.AddSingleton<ListSubscribers>();
+
+        serviceCollection.AddSingleton<IEventConsumer<UserCreatedEventArgs>, NewUserGate>();
+        serviceCollection.AddHostedService<SessionAccessGate>();
     }
 }

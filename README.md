@@ -38,13 +38,20 @@ O núcleo decide liberar ou negar; `JellyfinAccessEnforcer` aplica via `UpdatePo
 mesmo caminho do painel. Dois modos: desabilitar a conta, que derruba a sessão na hora, ou
 esconder as bibliotecas pagas e deixar só as gratuitas.
 
-Uma tarefa agendada revisa todo mundo de hora em hora, o que também conserta o estado quando
-um webhook se perde.
+O acesso é reavaliado quando a conta é criada, a cada início de sessão e de hora em hora pela
+tarefa agendada. Só a tarefa deixaria uma conta nova, ou um plano recém-vencido, liberados até
+a próxima passagem.
 
 ## Banco
 
 O plugin abre o próprio `paywall.db`, separado do `jellyfin.db`. O schema do servidor é dele
 e migra a cada release; dados de cobrança não podem ficar reféns disso.
+
+## Portal do usuário
+
+Quem está sem acesso entra em `/Paywall/Portal`, escolhe o plano, recebe o Pix e vê a tela
+liberar sozinha quando o pagamento cai. É página própria porque plugin não injeta interface
+no cliente web do Jellyfin.
 
 ## Configuração
 

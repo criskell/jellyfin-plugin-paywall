@@ -45,8 +45,8 @@ public sealed class ConfirmPayment(
             return ConfirmPaymentOutcome.Ignored;
         }
 
-        var order = await ResolveOrderAsync(notification.ProviderKey, payment, cancellationToken)
-            .ConfigureAwait(false);
+        var providerKey = notification.ProviderKey;
+        var order = await ResolveOrderAsync(providerKey, payment, cancellationToken).ConfigureAwait(false);
 
         if (order is null)
         {
@@ -55,7 +55,8 @@ public sealed class ConfirmPayment(
 
         return payment.Kind switch
         {
-            PaymentEventKind.Settled => await SettleAsync(order, payment, cancellationToken).ConfigureAwait(false),
+            PaymentEventKind.Settled =>
+                await SettleAsync(order, payment, providerKey, cancellationToken).ConfigureAwait(false),
             PaymentEventKind.Refunded => await RevokeAsync(order, payment, cancellationToken).ConfigureAwait(false),
             PaymentEventKind.Failed => await FailAsync(order, payment, cancellationToken).ConfigureAwait(false),
             PaymentEventKind.SubscriptionCanceled =>
@@ -92,14 +93,14 @@ public sealed class ConfirmPayment(
             return byReference;
         }
 
-        if (payment.SubscriptionReference is not { } subscription)
+        if (payment.SubscriptionReference is not { } subscriptionReference)
         {
             return null;
         }
 
         // A primeira cobrança de uma assinatura nova: o pedido foi aberto com o id da recorrência.
         var bySubscription = await orders
-            .FindByReferenceAsync(providerKey, subscription, cancellationToken)
+            .FindByReferenceAsync(providerKey, subscriptionReference, cancellationToken)
             .ConfigureAwait(false);
 
         if (bySubscription is { Status: OrderStatus.Pending })
@@ -107,13 +108,15 @@ public sealed class ConfirmPayment(
             return bySubscription;
         }
 
-        return await OpenRenewalAsync(providerKey, payment, subscription, cancellationToken).ConfigureAwait(false);
+        return await OpenRenewalAsync(
+            new Subscription(providerKey, subscriptionReference),
+            payment,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Order?> OpenRenewalAsync(
-        string providerKey,
+        Subscription subscription,
         PaymentEvent payment,
-        string subscription,
         CancellationToken cancellationToken)
     {
         var grant = await grants.FindBySubscriptionAsync(subscription, cancellationToken).ConfigureAwait(false);
@@ -123,7 +126,12 @@ public sealed class ConfirmPayment(
             return null;
         }
 
-        var renewal = Order.Open(identifiers.NewId(), grant.UserId, plan, providerKey, payment.OccurredAt);
+        var renewal = Order.Open(
+            identifiers.NewId(),
+            grant.UserId,
+            plan,
+            subscription.ProviderKey,
+            payment.OccurredAt);
         renewal.TrackAs(payment.ProviderReference);
 
         return renewal;
@@ -132,6 +140,7 @@ public sealed class ConfirmPayment(
     private async Task<ConfirmPaymentOutcome> SettleAsync(
         Order order,
         PaymentEvent payment,
+        string providerKey,
         CancellationToken cancellationToken)
     {
         if (!order.TrySettle(payment.OccurredAt))
@@ -144,7 +153,9 @@ public sealed class ConfirmPayment(
                     ?? AccessGrant.NeverPaid(order.UserId);
 
         grant.Extend(plan, payment.OccurredAt);
-        grant.AttachSubscription(payment.SubscriptionReference);
+        grant.AttachSubscription(payment.SubscriptionReference is { } reference
+            ? new Subscription(providerKey, reference)
+            : null);
 
         await orders.SaveAsync(order, cancellationToken).ConfigureAwait(false);
         await grants.SaveAsync(grant, cancellationToken).ConfigureAwait(false);

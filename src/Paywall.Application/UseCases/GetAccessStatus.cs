@@ -37,7 +37,7 @@ public sealed class GetAccessStatus(
             grant.PlanId,
             grant.ExpiresAt,
             grant.PlanId is not null && grant.ExpiresAt is null,
-            grant.SubscriptionReference is not null,
+            grant.Subscription is not null,
             plans.All.Select(Describe).ToArray(),
             providers.Available.Select(p => new PaymentMethodView(p.Key, p.DisplayName)).ToArray());
     }

@@ -65,7 +65,7 @@ public class ConfirmPaymentTests
 
         var grant = AccessGrant.NeverPaid(Subscriber);
         grant.Extend(Monthly, Now);
-        grant.AttachSubscription("sub_42");
+        grant.AttachSubscription(new Subscription("stub", "sub_42"));
         await grants.SaveAsync(grant, CancellationToken.None);
 
         var renewal = new PaymentEvent(PaymentEventKind.Settled, "pay_novo", Now.AddDays(30))
@@ -130,7 +130,7 @@ public class ConfirmPaymentTests
 
         var grant = await grants.FindAsync(Subscriber, CancellationToken.None);
         Assert.True(grant!.IsActiveAt(Now.AddDays(20), TimeSpan.Zero));
-        Assert.Null(grant.SubscriptionReference);
+        Assert.Null(grant.Subscription);
     }
 
     private static Task<ConfirmPaymentOutcome> Confirm(

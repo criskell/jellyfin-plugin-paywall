@@ -42,7 +42,7 @@ public sealed class ListSubscribers(
                 grant.PlanId,
                 grant.ExpiresAt,
                 grant.PlanId is not null && grant.ExpiresAt is null,
-                grant.SubscriptionReference is not null));
+                grant.Subscription is not null));
         }
 
         return statuses;

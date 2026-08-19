@@ -11,10 +11,10 @@ public sealed class JellyfinSubscriberDirectory(IUserManager userManager) : ISub
 {
     public Task<IReadOnlyCollection<Subscriber>> ListAsync(CancellationToken cancellationToken)
     {
-        var exempt = ParseExempt(Plugin.Instance?.Configuration.ExemptUserIds ?? []);
+        var exempt = ExemptIds;
 
         var subscribers = userManager.GetUsers()
-            .Where(user => userManager.GetUserDto(user).Policy?.IsAdministrator != true)
+            .Where(user => !IsAdministrator(user.Id))
             .Where(user => !exempt.Contains(user.Id))
             .Select(user => new Subscriber(user.Id, user.Username))
             .ToArray();
@@ -22,10 +22,26 @@ public sealed class JellyfinSubscriberDirectory(IUserManager userManager) : ISub
         return Task.FromResult<IReadOnlyCollection<Subscriber>>(subscribers);
     }
 
+    public Task<bool> IsSubjectAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var subject = userManager.GetUserById(userId) is not null
+                      && !IsAdministrator(userId)
+                      && !ExemptIds.Contains(userId);
+
+        return Task.FromResult(subject);
+    }
+
     /// <summary>Aceita id com ou sem hífen, já que painel e arquivo de configuração divergem.</summary>
-    private static HashSet<Guid> ParseExempt(string[] configuredIds) =>
-        configuredIds
-            .Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty)
-            .Where(id => id != Guid.Empty)
-            .ToHashSet();
+    private static HashSet<Guid> ExemptIds =>
+        (Plugin.Instance?.Configuration.ExemptUserIds ?? [])
+        .Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty)
+        .Where(id => id != Guid.Empty)
+        .ToHashSet();
+
+    private bool IsAdministrator(Guid userId)
+    {
+        var user = userManager.GetUserById(userId);
+
+        return user is not null && userManager.GetUserDto(user).Policy?.IsAdministrator == true;
+    }
 }
