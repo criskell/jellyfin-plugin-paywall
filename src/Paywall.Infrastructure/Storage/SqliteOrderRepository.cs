@@ -7,7 +7,8 @@ namespace Paywall.Infrastructure.Storage;
 public sealed class SqliteOrderRepository(PaywallDatabase database) : IOrderRepository
 {
     private const string Columns =
-        "id, user_id, plan_id, provider_key, provider_reference, amount_cents, currency, status, created_at, settled_at";
+        "id, user_id, plan_id, provider_key, provider_reference, amount_cents, currency, status, "
+        + "created_at, settled_at, duration_days";
 
     public async Task<Order?> FindAsync(Guid orderId, CancellationToken cancellationToken)
     {
@@ -48,9 +49,9 @@ public sealed class SqliteOrderRepository(PaywallDatabase database) : IOrderRepo
 
         command.CommandText = """
             INSERT INTO orders (id, user_id, plan_id, provider_key, provider_reference,
-                                amount_cents, currency, status, created_at, settled_at)
+                                amount_cents, currency, status, created_at, settled_at, duration_days)
             VALUES ($id, $user, $plan, $provider, $reference,
-                    $amount, $currency, $status, $created, $settled)
+                    $amount, $currency, $status, $created, $settled, $duration)
             ON CONFLICT (id) DO UPDATE SET
                 provider_reference = excluded.provider_reference,
                 status = excluded.status,
@@ -59,14 +60,15 @@ public sealed class SqliteOrderRepository(PaywallDatabase database) : IOrderRepo
 
         command.Bind("$id", order.Id.ToText());
         command.Bind("$user", order.UserId.ToText());
-        command.Bind("$plan", order.PlanId);
+        command.Bind("$plan", order.Terms.PlanId);
         command.Bind("$provider", order.ProviderKey);
         command.Bind("$reference", order.ProviderReference);
-        command.Bind("$amount", order.Amount.Cents);
-        command.Bind("$currency", order.Amount.Currency);
+        command.Bind("$amount", order.Terms.Price.Cents);
+        command.Bind("$currency", order.Terms.Price.Currency);
         command.Bind("$status", (int)order.Status);
         command.Bind("$created", order.CreatedAt.ToText());
         command.Bind("$settled", order.SettledAt?.ToText());
+        command.Bind("$duration", order.Terms.Duration.Days ?? 0);
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -81,11 +83,20 @@ public sealed class SqliteOrderRepository(PaywallDatabase database) : IOrderRepo
     private static Order Map(SqliteDataReader reader) => Order.Restore(
         reader.ReadGuid(0),
         reader.ReadGuid(1),
-        reader.GetString(2),
+        ReadTerms(reader),
         reader.GetString(3),
-        Money.Of(reader.GetInt64(5), reader.GetString(6)),
         (OrderStatus)reader.GetInt32(7),
         reader.ReadInstant(8),
         reader.ReadOptionalInstant(9),
         reader.ReadOptionalText(4));
+
+    private static PlanTerms ReadTerms(SqliteDataReader reader)
+    {
+        var days = reader.GetInt32(10);
+
+        return PlanTerms.Restore(
+            reader.GetString(2),
+            Money.Of(reader.GetInt64(5), reader.GetString(6)),
+            days > 0 ? AccessDuration.OfDays(days) : AccessDuration.Lifetime);
+    }
 }

@@ -78,10 +78,7 @@ public sealed class OpenNodeProvider(HttpClient http, IOpenNodeOptions options, 
             return Task.FromResult<PaymentEvent?>(null);
         }
 
-        if (!string.Equals(
-                SignatureForChargeId(chargeId),
-                fields.GetValueOrDefault("hashed_order"),
-                StringComparison.OrdinalIgnoreCase))
+        if (!SignedByOpenNode(chargeId, fields.GetValueOrDefault("hashed_order")))
         {
             throw new PaywallException("Notificação da OpenNode com assinatura inválida.");
         }
@@ -97,8 +94,8 @@ public sealed class OpenNodeProvider(HttpClient http, IOpenNodeOptions options, 
         });
     }
 
-    private string SignatureForChargeId(string chargeId) =>
-        WebhookSignature.Sha256Hex(chargeId, options.ApiKey!);
+    private bool SignedByOpenNode(string chargeId, string? hashedOrder) =>
+        WebhookSignature.MatchesSha256(chargeId, options.ApiKey!, hashedOrder);
 
     private static PaymentEventKind? MapStatus(string? status) => status switch
     {

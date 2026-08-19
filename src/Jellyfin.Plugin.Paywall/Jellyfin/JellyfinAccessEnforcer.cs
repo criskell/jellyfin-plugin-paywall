@@ -13,7 +13,7 @@ public sealed class JellyfinAccessEnforcer(IUserManager userManager, ILogger<Jel
     {
         var configuration = Plugin.Instance?.Configuration;
 
-        if (configuration is null || !configuration.Enabled)
+        if (configuration is null)
         {
             return;
         }
@@ -32,7 +32,7 @@ public sealed class JellyfinAccessEnforcer(IUserManager userManager, ILogger<Jel
             return;
         }
 
-        var deny = decision == AccessDecision.Deny;
+        var deny = configuration.Enabled && decision == AccessDecision.Deny;
 
         var changed = configuration.EnforcementMode switch
         {

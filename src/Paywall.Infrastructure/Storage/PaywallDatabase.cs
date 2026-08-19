@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Globalization;
 using Microsoft.Data.Sqlite;
 
@@ -40,6 +41,20 @@ public sealed class PaywallDatabase
         CREATE INDEX IF NOT EXISTS ix_grants_subscription
             ON access_grants (subscription_provider, subscription_reference)
             WHERE subscription_reference IS NOT NULL;
+        """,
+
+        """
+        ALTER TABLE access_grants ADD COLUMN revoked INTEGER NOT NULL DEFAULT 0;
+        """,
+
+        """
+        ALTER TABLE orders ADD COLUMN duration_days INTEGER NOT NULL DEFAULT 0;
+        """,
+
+        """
+        ALTER TABLE access_grants ADD COLUMN price_cents INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE access_grants ADD COLUMN currency TEXT NOT NULL DEFAULT 'BRL';
+        ALTER TABLE access_grants ADD COLUMN duration_days INTEGER NOT NULL DEFAULT 0;
         """
     ];
 
@@ -93,11 +108,7 @@ public sealed class PaywallDatabase
 
             for (var version = applied; version < SchemaVersions.Length; version++)
             {
-                await ExecuteAsync(connection, SchemaVersions[version], cancellationToken).ConfigureAwait(false);
-
-                var next = (version + 1).ToString(CultureInfo.InvariantCulture);
-                await ExecuteAsync(connection, $"PRAGMA user_version = {next};", cancellationToken)
-                    .ConfigureAwait(false);
+                await ApplyAsync(connection, version, cancellationToken).ConfigureAwait(false);
             }
 
             _migrated = true;
@@ -106,6 +117,24 @@ public sealed class PaywallDatabase
         {
             _migrationGate.Release();
         }
+    }
+
+    private static async Task ApplyAsync(
+        SqliteConnection connection,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var next = (version + 1).ToString(CultureInfo.InvariantCulture);
+
+        await ExecuteAsync(connection, SchemaVersions[version], cancellationToken, transaction)
+            .ConfigureAwait(false);
+        await ExecuteAsync(connection, $"PRAGMA user_version = {next};", cancellationToken, transaction)
+            .ConfigureAwait(false);
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<int> ReadVersionAsync(SqliteConnection connection, CancellationToken cancellationToken)
@@ -118,10 +147,15 @@ public sealed class PaywallDatabase
         return value is null ? 0 : Convert.ToInt32(value, CultureInfo.InvariantCulture);
     }
 
-    private static async Task ExecuteAsync(SqliteConnection connection, string sql, CancellationToken cancellationToken)
+    private static async Task ExecuteAsync(
+        SqliteConnection connection,
+        string sql,
+        CancellationToken cancellationToken,
+        DbTransaction? transaction = null)
     {
         await using var command = connection.CreateCommand();
         command.CommandText = sql;
+        command.Transaction = transaction as SqliteTransaction;
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 }

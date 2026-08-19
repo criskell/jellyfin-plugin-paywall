@@ -4,6 +4,7 @@ using System.Text.Json;
 using Paywall.Application;
 using Paywall.Application.Payments;
 using Paywall.Application.Ports;
+using Paywall.Infrastructure.Providers.Crypto;
 using Paywall.Domain;
 
 namespace Paywall.Infrastructure.Providers;
@@ -82,7 +83,7 @@ public sealed class AsaasPixProvider(HttpClient http, IAsaasOptions options, ICl
     {
         var received = notification.Headers.GetValueOrDefault("asaas-access-token");
 
-        if (!string.Equals(received, options.WebhookToken, StringComparison.Ordinal))
+        if (!WebhookSignature.SecretsMatch(options.WebhookToken!, received))
         {
             throw new PaywallException("Notificação do Asaas com token inválido.");
         }

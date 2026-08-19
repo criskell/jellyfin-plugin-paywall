@@ -12,8 +12,8 @@ internal static class WebhookSignature
     public static bool MatchesSha512(string body, string secret, string? received) =>
         MatchesDigest(HMACSHA512.HashData(Utf8(secret), Utf8(body)), received);
 
-    public static string Sha256Hex(string message, string secret) =>
-        Convert.ToHexStringLower(HMACSHA256.HashData(Utf8(secret), Utf8(message)));
+    public static bool SecretsMatch(string expected, string? received) =>
+        received is not null && CryptographicOperations.FixedTimeEquals(Utf8(expected), Utf8(received));
 
     private static bool MatchesDigest(byte[] expected, string? received)
     {

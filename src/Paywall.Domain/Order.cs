@@ -5,9 +5,8 @@ public sealed class Order
     private Order(
         Guid id,
         Guid userId,
-        string planId,
+        PlanTerms terms,
         string providerKey,
-        Money amount,
         OrderStatus status,
         DateTimeOffset createdAt,
         DateTimeOffset? settledAt,
@@ -15,9 +14,8 @@ public sealed class Order
     {
         Id = id;
         UserId = userId;
-        PlanId = planId;
+        Terms = terms;
         ProviderKey = providerKey;
-        Amount = amount;
         Status = status;
         CreatedAt = createdAt;
         SettledAt = settledAt;
@@ -28,11 +26,9 @@ public sealed class Order
 
     public Guid UserId { get; }
 
-    public string PlanId { get; }
+    public PlanTerms Terms { get; }
 
     public string ProviderKey { get; }
-
-    public Money Amount { get; }
 
     public OrderStatus Status { get; private set; }
 
@@ -51,20 +47,27 @@ public sealed class Order
             throw new ArgumentException("Pedido precisa de um provedor.", nameof(providerKey));
         }
 
-        return new Order(id, userId, plan.Id, providerKey, plan.Price, OrderStatus.Pending, createdAt, null, null);
+        return new Order(id, userId, PlanTerms.Of(plan), providerKey, OrderStatus.Pending, createdAt, null, null);
     }
+
+    public static Order Renew(
+        Guid id,
+        Guid userId,
+        PlanTerms terms,
+        string providerKey,
+        DateTimeOffset createdAt) =>
+        new(id, userId, terms, providerKey, OrderStatus.Pending, createdAt, null, null);
 
     public static Order Restore(
         Guid id,
         Guid userId,
-        string planId,
+        PlanTerms terms,
         string providerKey,
-        Money amount,
         OrderStatus status,
         DateTimeOffset createdAt,
         DateTimeOffset? settledAt,
         string? providerReference) =>
-        new(id, userId, planId, providerKey, amount, status, createdAt, settledAt, providerReference);
+        new(id, userId, terms, providerKey, status, createdAt, settledAt, providerReference);
 
     public void TrackAs(string providerReference)
     {

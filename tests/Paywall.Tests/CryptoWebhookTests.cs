@@ -176,6 +176,14 @@ public class CryptoWebhookTests
         }
 
         [Fact]
+        public async Task AssinaturaEmMaiusculasEAceita()
+        {
+            var payment = await Interpret(Body("paid", HexSha256("charge_7", ApiKeyValue).ToUpperInvariant()));
+
+            Assert.Equal(PaymentEventKind.Settled, payment?.Kind);
+        }
+
+        [Fact]
         public async Task AssinaturaForjadaERecusada()
         {
             await Assert.ThrowsAsync<PaywallException>(() => Interpret(Body("paid", HexSha256("charge_7", "outra"))));

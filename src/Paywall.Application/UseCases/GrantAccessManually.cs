@@ -19,7 +19,7 @@ public sealed class GrantAccessManually(
         var grant = await grants.FindAsync(command.UserId, cancellationToken).ConfigureAwait(false)
                     ?? AccessGrant.NeverPaid(command.UserId);
 
-        grant.Extend(plan, clock.UtcNow);
+        grant.Extend(PlanTerms.Of(plan), clock.UtcNow);
 
         await grants.SaveAsync(grant, cancellationToken).ConfigureAwait(false);
         await enforcer.ApplyAsync(command.UserId, AccessDecision.Allow, cancellationToken).ConfigureAwait(false);

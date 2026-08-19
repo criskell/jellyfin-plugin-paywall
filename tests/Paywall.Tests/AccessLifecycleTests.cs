@@ -45,7 +45,7 @@ public class AccessLifecycleTests
     {
         var grants = new InMemoryGrants();
         var grant = AccessGrant.NeverPaid(Subscriber);
-        grant.Extend(Monthly, Now.AddDays(-40));
+        grant.Extend(PlanTerms.Of(Monthly), Now.AddDays(-40));
         await grants.SaveAsync(grant, CancellationToken.None);
         var enforcer = new RecordingEnforcer();
 
@@ -61,7 +61,7 @@ public class AccessLifecycleTests
         var outro = new CancellableProvider("outro");
         var grants = new InMemoryGrants();
         var grant = AccessGrant.NeverPaid(Subscriber);
-        grant.Extend(Monthly, Now);
+        grant.Extend(PlanTerms.Of(Monthly), Now);
         grant.AttachSubscription(new Subscription("asaas", "sub_42"));
         await grants.SaveAsync(grant, CancellationToken.None);
 
@@ -81,7 +81,7 @@ public class AccessLifecycleTests
     {
         var grants = new InMemoryGrants();
         var grant = AccessGrant.NeverPaid(Subscriber);
-        grant.Extend(Monthly, Now);
+        grant.Extend(PlanTerms.Of(Monthly), Now);
         grant.AttachSubscription(new Subscription("provedor-removido", "sub_42"));
         await grants.SaveAsync(grant, CancellationToken.None);
         var enforcer = new RecordingEnforcer();

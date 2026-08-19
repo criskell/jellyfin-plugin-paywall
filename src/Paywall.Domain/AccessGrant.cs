@@ -2,33 +2,44 @@ namespace Paywall.Domain;
 
 public sealed class AccessGrant
 {
-    private AccessGrant(Guid userId, string? planId, DateTimeOffset? expiresAt, Subscription? subscription)
+    private AccessGrant(
+        Guid userId,
+        PlanTerms? terms,
+        DateTimeOffset? expiresAt,
+        Subscription? subscription,
+        bool revoked)
     {
         UserId = userId;
-        PlanId = planId;
+        Terms = terms;
         ExpiresAt = expiresAt;
         Subscription = subscription;
+        Revoked = revoked;
     }
 
     public Guid UserId { get; }
 
-    public string? PlanId { get; private set; }
+    public PlanTerms? Terms { get; private set; }
+
+    public string? PlanId => Terms?.PlanId;
 
     public DateTimeOffset? ExpiresAt { get; private set; }
 
     public Subscription? Subscription { get; private set; }
 
-    public static AccessGrant NeverPaid(Guid userId) => new(userId, null, null, null);
+    public bool Revoked { get; private set; }
+
+    public static AccessGrant NeverPaid(Guid userId) => new(userId, null, null, null, false);
 
     public static AccessGrant Restore(
         Guid userId,
-        string? planId,
+        PlanTerms? terms,
         DateTimeOffset? expiresAt,
-        Subscription? subscription) => new(userId, planId, expiresAt, subscription);
+        Subscription? subscription,
+        bool revoked) => new(userId, terms, expiresAt, subscription, revoked);
 
     public bool IsActiveAt(DateTimeOffset instant, TimeSpan grace)
     {
-        if (PlanId is null)
+        if (Terms is null || Revoked)
         {
             return false;
         }
@@ -36,25 +47,27 @@ public sealed class AccessGrant
         return ExpiresAt is null || ExpiresAt.Value.Add(grace) > instant;
     }
 
-    public void Extend(Plan plan, DateTimeOffset paidAt)
+    public void Extend(PlanTerms terms, DateTimeOffset paidAt)
     {
-        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(terms);
 
-        PlanId = plan.Id;
+        Terms = terms;
+        Revoked = false;
 
-        if (plan.Duration.IsLifetime)
+        if (terms.Duration.IsLifetime)
         {
             ExpiresAt = null;
             return;
         }
 
-        ExpiresAt = UnusedTimeEndsAt(paidAt).AddDays(plan.Duration.Days!.Value);
+        ExpiresAt = UnusedTimeEndsAt(paidAt).AddDays(terms.Duration.Days!.Value);
     }
 
     public void AttachSubscription(Subscription? subscription) => Subscription = subscription;
 
     public void Revoke(DateTimeOffset at)
     {
+        Revoked = true;
         ExpiresAt = at;
         Subscription = null;
     }

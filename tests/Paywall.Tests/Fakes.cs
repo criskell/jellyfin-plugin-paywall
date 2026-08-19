@@ -63,13 +63,6 @@ internal sealed class RecordingEnforcer : IAccessEnforcer
     }
 }
 
-internal sealed class FixedCatalog(params Plan[] plans) : IPlanCatalog
-{
-    public IReadOnlyCollection<Plan> All { get; } = plans;
-
-    public Plan? Find(string planId) => All.FirstOrDefault(plan => plan.Id == planId);
-}
-
 internal sealed class FakeDirectory(params Guid[] subjects) : ISubscriberDirectory
 {
     public Task<IReadOnlyCollection<Subscriber>> ListAsync(CancellationToken cancellationToken) =>

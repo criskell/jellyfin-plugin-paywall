@@ -22,7 +22,7 @@ public class AccessGrantTests
     {
         var grant = AccessGrant.NeverPaid(Guid.NewGuid());
 
-        grant.Extend(Monthly, Now);
+        grant.Extend(PlanTerms.Of(Monthly), Now);
 
         Assert.Equal(Now.AddDays(30), grant.ExpiresAt);
     }
@@ -31,9 +31,9 @@ public class AccessGrantTests
     public void RenovacaoAntecipadaSomaAoPrazoRestante()
     {
         var grant = AccessGrant.NeverPaid(Guid.NewGuid());
-        grant.Extend(Monthly, Now);
+        grant.Extend(PlanTerms.Of(Monthly), Now);
 
-        grant.Extend(Monthly, Now.AddDays(20));
+        grant.Extend(PlanTerms.Of(Monthly), Now.AddDays(20));
 
         Assert.Equal(Now.AddDays(60), grant.ExpiresAt);
     }
@@ -44,7 +44,7 @@ public class AccessGrantTests
         var lifetime = new Plan("vitalicio", "Vitalício", Money.Of(9900), BillingMode.OneTime, AccessDuration.Lifetime);
         var grant = AccessGrant.NeverPaid(Guid.NewGuid());
 
-        grant.Extend(lifetime, Now);
+        grant.Extend(PlanTerms.Of(lifetime), Now);
 
         Assert.True(grant.IsActiveAt(Now.AddYears(50), TimeSpan.Zero));
     }
@@ -53,7 +53,7 @@ public class AccessGrantTests
     public void ToleranciaSeguraOAcessoDepoisDoVencimento()
     {
         var grant = AccessGrant.NeverPaid(Guid.NewGuid());
-        grant.Extend(Monthly, Now);
+        grant.Extend(PlanTerms.Of(Monthly), Now);
 
         Assert.True(grant.IsActiveAt(Now.AddDays(31), TimeSpan.FromDays(3)));
     }
@@ -62,9 +62,32 @@ public class AccessGrantTests
     public void AcessoCaiQuandoAToleranciaTermina()
     {
         var grant = AccessGrant.NeverPaid(Guid.NewGuid());
-        grant.Extend(Monthly, Now);
+        grant.Extend(PlanTerms.Of(Monthly), Now);
 
         Assert.False(grant.IsActiveAt(Now.AddDays(34), TimeSpan.FromDays(3)));
+    }
+
+    [Fact]
+    public void RevogarCortaOAcessoMesmoComToleranciaConfigurada()
+    {
+        var grant = AccessGrant.NeverPaid(Guid.NewGuid());
+        grant.Extend(PlanTerms.Of(Monthly), Now);
+
+        grant.Revoke(Now);
+
+        Assert.False(grant.IsActiveAt(Now.AddSeconds(1), TimeSpan.FromDays(3)));
+    }
+
+    [Fact]
+    public void PagarDepoisDeRevogadoDevolveOAcesso()
+    {
+        var grant = AccessGrant.NeverPaid(Guid.NewGuid());
+        grant.Extend(PlanTerms.Of(Monthly), Now);
+        grant.Revoke(Now);
+
+        grant.Extend(PlanTerms.Of(Monthly), Now.AddDays(1));
+
+        Assert.True(grant.IsActiveAt(Now.AddDays(2), TimeSpan.Zero));
     }
 
     [Fact]

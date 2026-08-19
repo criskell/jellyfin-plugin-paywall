@@ -22,7 +22,6 @@ public sealed class ConfirmPayment(
     IPaymentProviderRegistry providers,
     IOrderRepository orders,
     IAccessGrantRepository grants,
-    IPlanCatalog plans,
     IAccessEnforcer enforcer,
     IIdentifierFactory identifiers)
 {
@@ -120,15 +119,15 @@ public sealed class ConfirmPayment(
         var subscription = new Subscription(providerKey, reference);
         var grant = await grants.FindBySubscriptionAsync(subscription, cancellationToken).ConfigureAwait(false);
 
-        if (grant?.PlanId is null || plans.Find(grant.PlanId) is not { } plan)
+        if (grant?.Terms is not { } terms)
         {
             return null;
         }
 
-        var renewal = Order.Open(
+        var renewal = Order.Renew(
             identifiers.NewId(),
             grant.UserId,
-            plan,
+            terms,
             subscription.ProviderKey,
             payment.OccurredAt);
         renewal.TrackAs(payment.ProviderReference);
@@ -147,11 +146,10 @@ public sealed class ConfirmPayment(
             return ConfirmPaymentOutcome.AlreadyProcessed;
         }
 
-        var plan = plans.Find(order.PlanId) ?? throw new PlanNotFoundException(order.PlanId);
         var grant = await grants.FindAsync(order.UserId, cancellationToken).ConfigureAwait(false)
                     ?? AccessGrant.NeverPaid(order.UserId);
 
-        grant.Extend(plan, payment.OccurredAt);
+        grant.Extend(order.Terms, payment.OccurredAt);
         grant.AttachSubscription(payment.SubscriptionReference is { } reference
             ? new Subscription(providerKey, reference)
             : null);

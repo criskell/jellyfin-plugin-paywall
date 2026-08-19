@@ -61,7 +61,7 @@ public class ConfirmPaymentTests
         var enforcer = new RecordingEnforcer();
 
         var grant = AccessGrant.NeverPaid(Subscriber);
-        grant.Extend(Monthly, Now);
+        grant.Extend(PlanTerms.Of(Monthly), Now);
         grant.AttachSubscription(new Subscription("stub", "sub_42"));
         await grants.SaveAsync(grant, CancellationToken.None);
 
@@ -137,13 +137,7 @@ public class ConfirmPaymentTests
         RecordingEnforcer enforcer)
     {
         var provider = new StubProvider(payment);
-        var useCase = new ConfirmPayment(
-            provider,
-            orders,
-            grants,
-            new FixedCatalog(Monthly),
-            enforcer,
-            new SequentialIdentifiers());
+        var useCase = new ConfirmPayment(provider, orders, grants, enforcer, new SequentialIdentifiers());
 
         return useCase.ExecuteAsync(AnyNotification, CancellationToken.None);
     }
