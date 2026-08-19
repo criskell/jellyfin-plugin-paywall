@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Paywall.Infrastructure</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Paywall.Application/Paywall.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Mesma versão que o servidor já carrega (EF Core 9.0.11 no Jellyfin 10.11). -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.11" />
+  </ItemGroup>
+</Project>
