@@ -39,26 +39,6 @@ public sealed class SqliteOrderRepository(PaywallDatabase database) : IOrderRepo
         return await ReadOneAsync(command, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<IReadOnlyCollection<Order>> ListByUserAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        await using var connection = await database.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-
-        command.CommandText = $"SELECT {Columns} FROM orders WHERE user_id = $user ORDER BY created_at DESC";
-        command.Bind("$user", userId.ToText());
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-
-        var orders = new List<Order>();
-
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            orders.Add(Map(reader));
-        }
-
-        return orders;
-    }
-
     public async Task SaveAsync(Order order, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(order);

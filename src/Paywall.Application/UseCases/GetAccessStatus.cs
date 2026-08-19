@@ -17,7 +17,6 @@ public sealed record AccessStatusView(
     IReadOnlyCollection<PlanView> Plans,
     IReadOnlyCollection<PaymentMethodView> PaymentMethods);
 
-/// <summary>Alimenta a tela que o usuário vê quando está sem acesso.</summary>
 public sealed class GetAccessStatus(
     IAccessGrantRepository grants,
     IPlanCatalog plans,

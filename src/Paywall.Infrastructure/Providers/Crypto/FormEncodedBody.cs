@@ -1,8 +1,5 @@
 namespace Paywall.Infrastructure.Providers.Crypto;
 
-/// <summary>
-/// Nem todo processador manda JSON: a OpenNode notifica em formulário codificado.
-/// </summary>
 internal static class FormEncodedBody
 {
     public static IReadOnlyDictionary<string, string> Parse(string body)

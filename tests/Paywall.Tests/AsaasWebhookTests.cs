@@ -11,7 +11,6 @@ public class AsaasWebhookTests
 
     private static readonly DateTimeOffset Now = new(2026, 8, 18, 12, 0, 0, TimeSpan.Zero);
 
-    /// <summary>Payload reduzido do exemplo da documentação do Asaas.</summary>
     private const string ReceivedPayload = """
         {
           "event": "PAYMENT_RECEIVED",
@@ -77,7 +76,7 @@ public class AsaasWebhookTests
         var provider = new AsaasPixProvider(new HttpClient(), new TestAsaasOptions(), new FixedClock(Now));
         var notification = new InboundNotification("asaas", headers, new Dictionary<string, string>(), body);
 
-        return provider.InterpretAsync(notification, CancellationToken.None);
+        return provider.ReadPaymentEventAsync(notification, CancellationToken.None);
     }
 
     private sealed class TestAsaasOptions : IAsaasOptions

@@ -11,16 +11,11 @@ public interface INowPaymentsOptions
 {
     string? ApiKey { get; }
 
-    /// <summary>Segredo de IPN, gerado no painel. Sem ele a notificação não é verificável.</summary>
     string? IpnSecret { get; }
 
     bool UseSandbox { get; }
 }
 
-/// <summary>
-/// Centenas de moedas pela NOWPayments, com página de pagamento hospedada onde o usuário
-/// escolhe em que cripto quer pagar.
-/// </summary>
 public sealed class NowPaymentsProvider(HttpClient http, INowPaymentsOptions options, IClock clock) : IPaymentProvider
 {
     public string Key => "nowpayments";
@@ -75,14 +70,14 @@ public sealed class NowPaymentsProvider(HttpClient http, INowPaymentsOptions opt
         });
     }
 
-    public Task<PaymentEvent?> InterpretAsync(InboundNotification notification, CancellationToken cancellationToken)
+    public Task<PaymentEvent?> ReadPaymentEventAsync(InboundNotification notification, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(notification);
 
-        var canonical = SortedJson.Canonicalize(notification.Body);
+        var signedForm = NowPaymentsSignedForm.Of(notification.Body);
         var signature = notification.Headers.GetValueOrDefault("x-nowpayments-sig");
 
-        if (!WebhookSignature.MatchesSha512(canonical, options.IpnSecret!, signature))
+        if (!WebhookSignature.MatchesSha512(signedForm, options.IpnSecret!, signature))
         {
             throw new PaywallException("Notificação da NOWPayments com assinatura inválida.");
         }
@@ -108,19 +103,17 @@ public sealed class NowPaymentsProvider(HttpClient http, INowPaymentsOptions opt
         });
     }
 
-    /// <summary>
-    /// <c>partially_paid</c> fica de fora de propósito: pagamento incompleto não pode liberar
-    /// acesso, e o usuário ainda tem prazo para completar.
-    /// </summary>
     private static PaymentEventKind? MapStatus(string? status) => status switch
     {
         "confirmed" or "finished" => PaymentEventKind.Settled,
         "failed" or "expired" => PaymentEventKind.Failed,
         "refunded" => PaymentEventKind.Refunded,
+        "waiting" or "confirming" or "sending" or "partially_paid" => NotYetPaidInFull,
         _ => null
     };
 
-    /// <summary>Campos como <c>id</c> e <c>invoice_id</c> chegam ora como texto, ora como número.</summary>
+    private static readonly PaymentEventKind? NotYetPaidInFull;
+
     private static string? Text(JsonElement element, string property)
     {
         if (!element.TryGetProperty(property, out var value))

@@ -5,10 +5,6 @@ using Paywall.Application.UseCases;
 
 namespace Jellyfin.Plugin.Paywall.Events;
 
-/// <summary>
-/// Conta recém-criada nasce enxergando tudo. Sem este gancho ela ficaria liberada até a
-/// próxima varredura, que roda de hora em hora.
-/// </summary>
 public sealed class NewUserGate(ApplyCurrentAccess applyAccess, ILogger<NewUserGate> logger)
     : IEventConsumer<UserCreatedEventArgs>
 {

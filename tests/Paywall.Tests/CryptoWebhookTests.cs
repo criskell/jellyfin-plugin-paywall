@@ -36,7 +36,7 @@ public class CryptoWebhookTests
         private static Task<PaymentEvent?> Interpret(string body, string signature)
         {
             var provider = new BtcPayServerProvider(new HttpClient(), new Options(), new FixedClock(Now));
-            return provider.InterpretAsync(Notify("btcpay", body, "BTCPay-Sig", signature), CancellationToken.None);
+            return provider.ReadPaymentEventAsync(Notify("btcpay", body, "BTCPay-Sig", signature), CancellationToken.None);
         }
 
         [Fact]
@@ -55,7 +55,18 @@ public class CryptoWebhookTests
             await Assert.ThrowsAsync<PaywallException>(() => Interpret(SettledBody, "sha256=" + HexSha256(SettledBody, "outro")));
         }
 
-        /// <summary>Pagamento visto mas ainda sem confirmação na rede não pode liberar nada.</summary>
+        [Fact]
+        public async Task AssinaturaMalFormadaERecusadaSemQuebrar()
+        {
+            await Assert.ThrowsAsync<PaywallException>(() => Interpret(SettledBody, "sha256=nao-e-hexadecimal"));
+        }
+
+        [Fact]
+        public async Task AssinaturaVaziaERecusada()
+        {
+            await Assert.ThrowsAsync<PaywallException>(() => Interpret(SettledBody, string.Empty));
+        }
+
         [Fact]
         public async Task FaturaEmProcessamentoNaoLiberaNada()
         {
@@ -80,7 +91,6 @@ public class CryptoWebhookTests
     {
         private const string Secret = "segredo-ipn";
 
-        /// <summary>Chaves fora de ordem e com espaços de propósito: a assinatura é sobre a forma canônica.</summary>
         private const string FinishedBody = """
             {
               "payment_status": "finished",
@@ -97,7 +107,7 @@ public class CryptoWebhookTests
         private static Task<PaymentEvent?> Interpret(string body, string signature)
         {
             var provider = new NowPaymentsProvider(new HttpClient(), new Options(), new FixedClock(Now));
-            return provider.InterpretAsync(
+            return provider.ReadPaymentEventAsync(
                 Notify("nowpayments", body, "x-nowpayments-sig", signature),
                 CancellationToken.None);
         }
@@ -118,7 +128,6 @@ public class CryptoWebhookTests
             await Assert.ThrowsAsync<PaywallException>(() => Interpret(FinishedBody, HexSha512(FinishedBody, Secret)));
         }
 
-        /// <summary>Pagamento incompleto não pode liberar acesso.</summary>
         [Fact]
         public async Task PagamentoParcialNaoLiberaNada()
         {
@@ -151,7 +160,7 @@ public class CryptoWebhookTests
         private static Task<PaymentEvent?> Interpret(string body)
         {
             var provider = new OpenNodeProvider(new HttpClient(), new Options(), new FixedClock(Now));
-            return provider.InterpretAsync(
+            return provider.ReadPaymentEventAsync(
                 Notify("opennode", body, "Content-Type", "application/x-www-form-urlencoded"),
                 CancellationToken.None);
         }

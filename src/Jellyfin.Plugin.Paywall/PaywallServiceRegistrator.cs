@@ -15,9 +15,6 @@ using Paywall.Infrastructure.Storage;
 
 namespace Jellyfin.Plugin.Paywall;
 
-/// <summary>
-/// Raiz de composição: o único lugar que conhece implementações concretas.
-/// </summary>
 public sealed class PaywallServiceRegistrator : IPluginServiceRegistrator
 {
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
@@ -33,7 +30,7 @@ public sealed class PaywallServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IBtcPayOptions, BtcPayOptions>();
         serviceCollection.AddSingleton<INowPaymentsOptions, NowPaymentsOptions>();
         serviceCollection.AddSingleton<IOpenNodeOptions, OpenNodeOptions>();
-        serviceCollection.AddSingleton<IWebhookEndpoints, PublicUrlWebhookEndpoints>();
+        serviceCollection.AddSingleton<IPaywallUrls, PublicPaywallUrls>();
 
         serviceCollection.AddSingleton(_ => new PaywallDatabase(Plugin.Instance!.DataPath));
         serviceCollection.AddSingleton<IOrderRepository, SqliteOrderRepository>();

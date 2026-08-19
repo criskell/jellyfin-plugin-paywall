@@ -5,10 +5,6 @@ using Paywall.Application.UseCases;
 
 namespace Jellyfin.Plugin.Paywall.Events;
 
-/// <summary>
-/// Reavalia o acesso quando uma sessão começa. Fecha a janela entre o vencimento e a próxima
-/// varredura, em que alguém com plano vencido ainda conseguiria assistir.
-/// </summary>
 public sealed class SessionAccessGate(
     ISessionManager sessionManager,
     ApplyCurrentAccess applyAccess,
@@ -41,7 +37,6 @@ public sealed class SessionAccessGate(
         }
         catch (Exception failure)
         {
-            // Manipulador de evento: deixar escapar derrubaria o servidor.
             logger.LogError(failure, "Paywall: falha ao avaliar o acesso no início da sessão.");
         }
     }

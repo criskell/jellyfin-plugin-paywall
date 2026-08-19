@@ -4,10 +4,6 @@ namespace Paywall.Application.UseCases;
 
 public sealed record AccessSyncReport(int Allowed, int Denied);
 
-/// <summary>
-/// Rede de segurança: reconcilia todo mundo com os vencimentos, o que também conserta o
-/// estado quando um webhook se perde.
-/// </summary>
 public sealed class SyncAccess(ISubscriberDirectory subscribers, ApplyCurrentAccess applyAccess)
 {
     public async Task<AccessSyncReport> ExecuteAsync(CancellationToken cancellationToken)

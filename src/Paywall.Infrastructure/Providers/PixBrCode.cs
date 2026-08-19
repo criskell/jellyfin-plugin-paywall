@@ -3,10 +3,6 @@ using System.Text;
 
 namespace Paywall.Infrastructure.Providers;
 
-/// <summary>
-/// Monta o "copia e cola" do Pix no padrão BR Code (EMV MPM) do Banco Central, permitindo
-/// cobrança com valor sem depender de nenhum PSP.
-/// </summary>
 public static class PixBrCode
 {
     private const string PixGui = "BR.GOV.BCB.PIX";
@@ -17,7 +13,7 @@ public static class PixBrCode
 
         var merchantAccount = Field("00", PixGui) + Field("01", request.Key);
 
-        var additionalData = Field("05", Sanitize(request.TransactionId, 25, fallback: "***"));
+        var additionalData = Field("05", ToPrintableAscii(request.TransactionId, 25, fallback: "***"));
 
         var payload = new StringBuilder()
             .Append(Field("00", "01"))
@@ -26,8 +22,8 @@ public static class PixBrCode
             .Append(Field("53", "986"))
             .Append(Field("54", request.Amount.ToString("0.00", CultureInfo.InvariantCulture)))
             .Append(Field("58", "BR"))
-            .Append(Field("59", Sanitize(request.PayeeName, 25, fallback: "RECEBEDOR")))
-            .Append(Field("60", Sanitize(request.PayeeCity, 15, fallback: "SAO PAULO")))
+            .Append(Field("59", ToPrintableAscii(request.PayeeName, 25, fallback: "RECEBEDOR")))
+            .Append(Field("60", ToPrintableAscii(request.PayeeCity, 15, fallback: "SAO PAULO")))
             .Append(Field("62", additionalData))
             .Append("6304")
             .ToString();
@@ -38,8 +34,7 @@ public static class PixBrCode
     private static string Field(string id, string value) =>
         id + value.Length.ToString("D2", CultureInfo.InvariantCulture) + value;
 
-    /// <summary>O BR Code só aceita ASCII imprimível, então acento e símbolo são removidos.</summary>
-    private static string Sanitize(string? value, int maxLength, string fallback)
+    private static string ToPrintableAscii(string? value, int maxLength, string fallback)
     {
         if (string.IsNullOrWhiteSpace(value))
         {

@@ -3,18 +3,11 @@ using Microsoft.Data.Sqlite;
 
 namespace Paywall.Infrastructure.Storage;
 
-/// <summary>
-/// Banco próprio do plugin, num arquivo separado do <c>jellyfin.db</c>. O servidor é dono do
-/// schema dele e o migra a cada release; misturar tabelas ali deixaria os dados de cobrança
-/// reféns de migrations que não são nossas.
-/// </summary>
 public sealed class PaywallDatabase
 {
-    /// <summary>
-    /// Cada posição é uma versão do schema, aplicada em ordem a partir de onde o arquivo parou.
-    /// Roteiro só cresce no fim: alterar um já aplicado não teria efeito em quem migrou.
-    /// </summary>
-    private static readonly string[] Migrations =
+    private const string EnableConcurrentReads = "PRAGMA journal_mode = WAL;";
+
+    private static readonly string[] SchemaVersions =
     [
         """
         CREATE TABLE IF NOT EXISTS orders (
@@ -94,14 +87,13 @@ public sealed class PaywallDatabase
             await using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
-            // WAL deixa a varredura de vencimentos ler enquanto um webhook grava.
-            await ExecuteAsync(connection, "PRAGMA journal_mode = WAL;", cancellationToken).ConfigureAwait(false);
+            await ExecuteAsync(connection, EnableConcurrentReads, cancellationToken).ConfigureAwait(false);
 
             var applied = await ReadVersionAsync(connection, cancellationToken).ConfigureAwait(false);
 
-            for (var version = applied; version < Migrations.Length; version++)
+            for (var version = applied; version < SchemaVersions.Length; version++)
             {
-                await ExecuteAsync(connection, Migrations[version], cancellationToken).ConfigureAwait(false);
+                await ExecuteAsync(connection, SchemaVersions[version], cancellationToken).ConfigureAwait(false);
 
                 var next = (version + 1).ToString(CultureInfo.InvariantCulture);
                 await ExecuteAsync(connection, $"PRAGMA user_version = {next};", cancellationToken)

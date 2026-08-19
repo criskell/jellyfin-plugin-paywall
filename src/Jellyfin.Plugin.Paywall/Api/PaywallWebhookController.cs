@@ -7,10 +7,6 @@ using Paywall.Application.UseCases;
 
 namespace Jellyfin.Plugin.Paywall.Api;
 
-/// <summary>
-/// Porta de entrada dos provedores. Anônima por necessidade: quem valida a autenticidade
-/// da notificação é o adaptador do provedor, que conhece a assinatura dele.
-/// </summary>
 [ApiController]
 [Route("Paywall/Webhook")]
 public sealed class PaywallWebhookController(
@@ -35,7 +31,6 @@ public sealed class PaywallWebhookController(
             var outcome = await confirmPayment.ExecuteAsync(notification, cancellationToken).ConfigureAwait(false);
             logger.LogInformation("Paywall: webhook de {Provider} resultou em {Outcome}.", providerKey, outcome);
 
-            // Erro conhecido não pode virar 5xx: o provedor reenviaria o mesmo evento sem parar.
             return outcome == ConfirmPaymentOutcome.OrderNotFound ? NotFound() : Ok(new { outcome = outcome.ToString() });
         }
         catch (PaywallException failure)

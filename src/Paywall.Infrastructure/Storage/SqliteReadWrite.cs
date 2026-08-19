@@ -3,9 +3,6 @@ using Microsoft.Data.Sqlite;
 
 namespace Paywall.Infrastructure.Storage;
 
-/// <summary>
-/// Conversões entre os tipos do domínio e as colunas de texto do SQLite, num lugar só.
-/// </summary>
 internal static class SqliteReadWrite
 {
     public static string ToText(this Guid value) => value.ToString("N");

@@ -96,7 +96,6 @@
 
         var authorization = 'MediaBrowser Client="Paywall", Device="Portal", DeviceId="paywall-portal", Version="1.0.0"';
 
-        // A página é servida em /Paywall/Portal, e o servidor pode estar sob um caminho base.
         var apiRoot = window.location.pathname.replace(/\/Paywall\/Portal\/?$/i, '') + '/';
 
         function el(id) {
@@ -222,7 +221,6 @@
                         renderStatus(status);
                     }
                 }).catch(function () {
-                    // Uma consulta perdida não interrompe a espera.
                 });
             }, 5000);
         }

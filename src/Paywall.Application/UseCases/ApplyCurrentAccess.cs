@@ -3,11 +3,6 @@ using Paywall.Domain;
 
 namespace Paywall.Application.UseCases;
 
-/// <summary>
-/// Decide e aplica a situação de um usuário agora. Usado na varredura periódica, quando uma
-/// conta é criada e a cada login, de forma que ninguém fique liberado no intervalo entre
-/// duas varreduras.
-/// </summary>
 public sealed class ApplyCurrentAccess(
     ISubscriberDirectory subscribers,
     IAccessGrantRepository grants,

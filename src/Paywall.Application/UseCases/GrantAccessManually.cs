@@ -5,10 +5,6 @@ namespace Paywall.Application.UseCases;
 
 public sealed record GrantAccessManuallyCommand(Guid UserId, string PlanId);
 
-/// <summary>
-/// Libera acesso sem cobrança: cortesia, teste, ou Pix recebido fora do sistema e conferido
-/// pelo administrador no extrato.
-/// </summary>
 public sealed class GrantAccessManually(
     IPlanCatalog plans,
     IAccessGrantRepository grants,

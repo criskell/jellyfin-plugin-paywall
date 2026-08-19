@@ -1,8 +1,5 @@
 namespace Paywall.Domain;
 
-/// <summary>
-/// Uma tentativa de pagamento. Guarda a referência externa que liga o webhook do provedor ao usuário.
-/// </summary>
 public sealed class Order
 {
     private Order(
@@ -43,7 +40,6 @@ public sealed class Order
 
     public DateTimeOffset? SettledAt { get; private set; }
 
-    /// <summary>Identificador da cobrança no provedor. Preenchido depois que o checkout é aberto.</summary>
     public string? ProviderReference { get; private set; }
 
     public static Order Open(Guid id, Guid userId, Plan plan, string providerKey, DateTimeOffset createdAt)
@@ -80,10 +76,6 @@ public sealed class Order
         ProviderReference = providerReference;
     }
 
-    /// <summary>
-    /// Confirma o pagamento. Retorna falso quando o pedido já saiu de pendente, o que torna
-    /// reentrega de webhook inofensiva.
-    /// </summary>
     public bool TrySettle(DateTimeOffset paidAt)
     {
         if (Status != OrderStatus.Pending)
@@ -96,24 +88,20 @@ public sealed class Order
         return true;
     }
 
-    public void Fail(DateTimeOffset at) => Close(OrderStatus.Failed, at);
-
-    public void Cancel(DateTimeOffset at) => Close(OrderStatus.Canceled, at);
-
-    public void Refund(DateTimeOffset at)
-    {
-        Status = OrderStatus.Refunded;
-        SettledAt = at;
-    }
-
-    private void Close(OrderStatus status, DateTimeOffset at)
+    public void Fail(DateTimeOffset at)
     {
         if (Status != OrderStatus.Pending)
         {
             return;
         }
 
-        Status = status;
+        Status = OrderStatus.Failed;
+        SettledAt = at;
+    }
+
+    public void Refund(DateTimeOffset at)
+    {
+        Status = OrderStatus.Refunded;
         SettledAt = at;
     }
 }

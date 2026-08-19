@@ -28,9 +28,6 @@ internal sealed class InMemoryOrders : IOrderRepository
         Task.FromResult(_orders.Values.FirstOrDefault(order =>
             order.ProviderKey == providerKey && order.ProviderReference == reference));
 
-    public Task<IReadOnlyCollection<Order>> ListByUserAsync(Guid userId, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyCollection<Order>>(_orders.Values.Where(o => o.UserId == userId).ToArray());
-
     public Task SaveAsync(Order order, CancellationToken cancellationToken)
     {
         _orders[order.Id] = order;
@@ -97,7 +94,6 @@ internal sealed class FakeRegistry(params IPaymentProvider[] providers) : IPayme
         ?? throw new PaymentProviderNotFoundException(key);
 }
 
-/// <summary>Provedor que registra quais recorrências mandaram cancelar.</summary>
 internal sealed class CancellableProvider(string key) : IPaymentProvider, ISupportsSubscriptionCancellation
 {
     public List<string> Canceled { get; } = [];
@@ -113,7 +109,7 @@ internal sealed class CancellableProvider(string key) : IPaymentProvider, ISuppo
     public Task<CheckoutTicket> StartCheckoutAsync(CheckoutRequest request, CancellationToken cancellationToken) =>
         Task.FromResult(new CheckoutTicket("ref", new PaymentInstructions()));
 
-    public Task<PaymentEvent?> InterpretAsync(InboundNotification n, CancellationToken cancellationToken) =>
+    public Task<PaymentEvent?> ReadPaymentEventAsync(InboundNotification n, CancellationToken cancellationToken) =>
         Task.FromResult<PaymentEvent?>(null);
 
     public Task CancelSubscriptionAsync(string subscriptionReference, CancellationToken cancellationToken)
@@ -123,7 +119,6 @@ internal sealed class CancellableProvider(string key) : IPaymentProvider, ISuppo
     }
 }
 
-/// <summary>Provedor de mentira que devolve um evento já pronto, sem rede.</summary>
 internal sealed class StubProvider(PaymentEvent? result) : IPaymentProvider, IPaymentProviderRegistry
 {
     public string Key => "stub";
@@ -141,6 +136,6 @@ internal sealed class StubProvider(PaymentEvent? result) : IPaymentProvider, IPa
     public Task<CheckoutTicket> StartCheckoutAsync(CheckoutRequest request, CancellationToken cancellationToken) =>
         Task.FromResult(new CheckoutTicket("ref", new PaymentInstructions()));
 
-    public Task<PaymentEvent?> InterpretAsync(InboundNotification n, CancellationToken cancellationToken) =>
+    public Task<PaymentEvent?> ReadPaymentEventAsync(InboundNotification n, CancellationToken cancellationToken) =>
         Task.FromResult(result);
 }

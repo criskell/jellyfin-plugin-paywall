@@ -11,9 +11,6 @@ public sealed record StartCheckoutBody(string PlanId, string ProviderKey)
     public string? TaxId { get; init; }
 }
 
-/// <summary>
-/// Adaptador humilde: traduz HTTP para caso de uso e de volta. Nenhuma regra de negócio aqui.
-/// </summary>
 [ApiController]
 [Route("Paywall")]
 [Produces("application/json")]

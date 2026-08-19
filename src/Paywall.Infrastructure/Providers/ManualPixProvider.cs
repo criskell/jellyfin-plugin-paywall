@@ -14,10 +14,6 @@ public interface IManualPixOptions
     string? Instructions { get; }
 }
 
-/// <summary>
-/// Pix direto na sua chave, sem intermediário. Gera o copia e cola com valor certo, mas
-/// não tem como saber que o dinheiro entrou: a liberação é feita pelo administrador.
-/// </summary>
 public sealed class ManualPixProvider(IManualPixOptions options) : IPaymentProvider
 {
     public string Key => "manual-pix";
@@ -50,7 +46,6 @@ public sealed class ManualPixProvider(IManualPixOptions options) : IPaymentProvi
         return Task.FromResult(new CheckoutTicket(reference, instructions));
     }
 
-    /// <summary>Sem PSP não existe webhook: nada a interpretar.</summary>
-    public Task<PaymentEvent?> InterpretAsync(InboundNotification notification, CancellationToken cancellationToken) =>
+    public Task<PaymentEvent?> ReadPaymentEventAsync(InboundNotification notification, CancellationToken cancellationToken) =>
         Task.FromResult<PaymentEvent?>(null);
 }

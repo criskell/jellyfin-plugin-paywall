@@ -1,8 +1,5 @@
 namespace Paywall.Domain;
 
-/// <summary>
-/// O que está à venda: preço, forma de cobrança e quanto acesso libera.
-/// </summary>
 public sealed class Plan
 {
     public Plan(string id, string name, Money price, BillingMode billingMode, AccessDuration duration)
@@ -37,8 +34,5 @@ public sealed class Plan
 
     public BillingMode BillingMode { get; }
 
-    /// <summary>
-    /// Para pagamento único, o prazo liberado. Para assinatura, o intervalo entre cobranças.
-    /// </summary>
     public AccessDuration Duration { get; }
 }

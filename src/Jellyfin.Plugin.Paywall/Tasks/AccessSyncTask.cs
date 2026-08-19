@@ -4,10 +4,6 @@ using Paywall.Application.UseCases;
 
 namespace Jellyfin.Plugin.Paywall.Tasks;
 
-/// <summary>
-/// Rede de segurança do paywall: corta quem venceu e reabre quem foi pago, mesmo que
-/// algum webhook tenha se perdido.
-/// </summary>
 public sealed class AccessSyncTask(SyncAccess syncAccess, ILogger<AccessSyncTask> logger) : IScheduledTask
 {
     public string Name => "Paywall: revisar acessos";

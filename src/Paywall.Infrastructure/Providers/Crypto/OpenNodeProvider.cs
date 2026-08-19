@@ -12,14 +12,9 @@ public interface IOpenNodeOptions
 {
     string? ApiKey { get; }
 
-    /// <summary>Ambiente de desenvolvimento da OpenNode, para testar sem dinheiro real.</summary>
     bool UseDevelopment { get; }
 }
 
-/// <summary>
-/// Bitcoin pela OpenNode, hospedado. Cada cobrança nasce com fatura Lightning e endereço
-/// on-chain, o que importa para mensalidade pequena: taxa on-chain comeria o valor.
-/// </summary>
 public sealed class OpenNodeProvider(HttpClient http, IOpenNodeOptions options, IClock clock) : IPaymentProvider
 {
     public string Key => "opennode";
@@ -69,10 +64,10 @@ public sealed class OpenNodeProvider(HttpClient http, IOpenNodeOptions options, 
             throw new PaywallException("OpenNode não devolveu a cobrança criada.");
         }
 
-        return new CheckoutTicket(chargeId, Describe(charge));
+        return new CheckoutTicket(chargeId, ReadInstructions(charge));
     }
 
-    public Task<PaymentEvent?> InterpretAsync(InboundNotification notification, CancellationToken cancellationToken)
+    public Task<PaymentEvent?> ReadPaymentEventAsync(InboundNotification notification, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(notification);
 
@@ -83,10 +78,10 @@ public sealed class OpenNodeProvider(HttpClient http, IOpenNodeOptions options, 
             return Task.FromResult<PaymentEvent?>(null);
         }
 
-        // A OpenNode assina só o id da cobrança, usando a própria chave de API como segredo.
-        var expected = WebhookSignature.Sha256Hex(chargeId, options.ApiKey!);
-
-        if (!string.Equals(expected, fields.GetValueOrDefault("hashed_order"), StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(
+                SignatureForChargeId(chargeId),
+                fields.GetValueOrDefault("hashed_order"),
+                StringComparison.OrdinalIgnoreCase))
         {
             throw new PaywallException("Notificação da OpenNode com assinatura inválida.");
         }
@@ -102,6 +97,9 @@ public sealed class OpenNodeProvider(HttpClient http, IOpenNodeOptions options, 
         });
     }
 
+    private string SignatureForChargeId(string chargeId) =>
+        WebhookSignature.Sha256Hex(chargeId, options.ApiKey!);
+
     private static PaymentEventKind? MapStatus(string? status) => status switch
     {
         "paid" => PaymentEventKind.Settled,
@@ -110,11 +108,7 @@ public sealed class OpenNodeProvider(HttpClient http, IOpenNodeOptions options, 
         _ => null
     };
 
-    /// <summary>
-    /// Prefere a fatura Lightning como copia e cola; o endereço on-chain fica na mensagem,
-    /// para quem quiser pagar pela cadeia principal.
-    /// </summary>
-    private static PaymentInstructions Describe(JsonElement charge)
+    private static PaymentInstructions ReadInstructions(JsonElement charge)
     {
         var lightning = charge.TryGetProperty("lightning_invoice", out var invoice) ? Text(invoice, "payreq") : null;
         var onChain = charge.TryGetProperty("chain_invoice", out var chain) ? Text(chain, "address") : null;

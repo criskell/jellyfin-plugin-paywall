@@ -6,10 +6,6 @@ using Paywall.Application.Ports;
 
 namespace Jellyfin.Plugin.Paywall.Jellyfin;
 
-/// <summary>
-/// Aplica a decisão do núcleo no servidor, pelo mesmo caminho que o painel usa: lê a política
-/// atual do usuário, muda só o que o paywall controla e regrava.
-/// </summary>
 public sealed class JellyfinAccessEnforcer(IUserManager userManager, ILogger<JellyfinAccessEnforcer> logger)
     : IAccessEnforcer
 {
@@ -53,7 +49,6 @@ public sealed class JellyfinAccessEnforcer(IUserManager userManager, ILogger<Jel
         logger.LogInformation("Paywall: acesso de {User} agora é {Decision}.", user.Username, decision);
     }
 
-    /// <summary>Conta desabilitada derruba a sessão aberta e recusa novo login.</summary>
     private static bool LockAccount(UserPolicy policy, bool deny)
     {
         if (policy.IsDisabled == deny)
@@ -65,13 +60,11 @@ public sealed class JellyfinAccessEnforcer(IUserManager userManager, ILogger<Jel
         return true;
     }
 
-    /// <summary>Bibliotecas liberadas sem pagar, identificadas pelo id da pasta no Jellyfin.</summary>
     private static Guid[] ParseFolders(string[] configuredIds) =>
         configuredIds.Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty)
             .Where(id => id != Guid.Empty)
             .ToArray();
 
-    /// <summary>Mantém o login e some com as bibliotecas pagas, deixando só as gratuitas.</summary>
     private static bool RestrictLibraries(UserPolicy policy, bool deny, Guid[] freeFolderIds)
     {
         var seesEverything = !deny;

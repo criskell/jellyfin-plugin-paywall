@@ -89,9 +89,6 @@ public class SqliteStorageTests : IDisposable
             CancellationToken.None));
     }
 
-    /// <summary>
-    /// Banco escrito pela versão anterior precisa ganhar a coluna nova sem perder concessões.
-    /// </summary>
     [Fact]
     public async Task BancoNaVersaoAnteriorEMigradoSemPerderDados()
     {

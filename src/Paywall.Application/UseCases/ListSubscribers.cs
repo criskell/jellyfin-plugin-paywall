@@ -12,10 +12,6 @@ public sealed record SubscriberStatusView(
     bool IsLifetime,
     bool HasActiveSubscription);
 
-/// <summary>
-/// Situação de cada usuário sujeito ao paywall, para o administrador conferir quem está
-/// em dia e liberar quem pagou por fora.
-/// </summary>
 public sealed class ListSubscribers(
     ISubscriberDirectory subscribers,
     IAccessGrantRepository grants,

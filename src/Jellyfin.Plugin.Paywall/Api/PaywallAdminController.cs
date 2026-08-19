@@ -17,13 +17,11 @@ public sealed class PaywallAdminController(
     SyncAccess syncAccess,
     ListSubscribers listSubscribers) : ControllerBase
 {
-    /// <summary>Situação de cada usuário sujeito ao paywall.</summary>
     [HttpGet("Subscribers")]
     public async Task<ActionResult<IReadOnlyCollection<SubscriberStatusView>>> Subscribers(
         CancellationToken cancellationToken) =>
         Ok(await listSubscribers.ExecuteAsync(cancellationToken).ConfigureAwait(false));
 
-    /// <summary>Libera acesso sem cobrança, para Pix conferido no extrato ou cortesia.</summary>
     [HttpPost("Users/{userId:guid}/Grant")]
     public async Task<ActionResult> Grant(
         Guid userId,
@@ -51,7 +49,6 @@ public sealed class PaywallAdminController(
         return NoContent();
     }
 
-    /// <summary>Reaplica as decisões agora, sem esperar a tarefa agendada.</summary>
     [HttpPost("Sync")]
     public async Task<ActionResult<AccessSyncReport>> Sync(CancellationToken cancellationToken) =>
         await syncAccess.ExecuteAsync(cancellationToken).ConfigureAwait(false);

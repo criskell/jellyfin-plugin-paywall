@@ -12,24 +12,15 @@ public interface IAsaasOptions
 {
     string? ApiKey { get; }
 
-    /// <summary>Token exigido no header <c>asaas-access-token</c> das notificações.</summary>
     string? WebhookToken { get; }
 
     bool UseSandbox { get; }
 
-    /// <summary>
-    /// CPF ou CNPJ usado quando o pagador não informa o próprio. O Asaas exige o documento
-    /// para emitir cobrança, e num servidor doméstico raramente vale pedir isso a cada usuário.
-    /// </summary>
     string? DefaultTaxId { get; }
 
     string? ApplicationName { get; }
 }
 
-/// <summary>
-/// Pix pelo Asaas, tanto cobrança avulsa quanto assinatura recorrente. Confirmação chega
-/// por webhook, então a liberação é automática.
-/// </summary>
 public sealed class AsaasPixProvider(HttpClient http, IAsaasOptions options, IClock clock)
     : IPaymentProvider, ISupportsSubscriptionCancellation
 {
@@ -39,12 +30,11 @@ public sealed class AsaasPixProvider(HttpClient http, IAsaasOptions options, ICl
 
     public IReadOnlyCollection<BillingMode> SupportedModes { get; } = [BillingMode.OneTime, BillingMode.Recurring];
 
-    /// <summary>
-    /// Sem token de webhook qualquer um poderia forjar um pagamento aprovado, então a
-    /// integração só é oferecida quando os dois segredos estão configurados.
-    /// </summary>
-    public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(options.ApiKey) && !string.IsNullOrWhiteSpace(options.WebhookToken);
+    public bool IsConfigured => HasApiKey && CanVerifyNotifications;
+
+    private bool HasApiKey => !string.IsNullOrWhiteSpace(options.ApiKey);
+
+    private bool CanVerifyNotifications => !string.IsNullOrWhiteSpace(options.WebhookToken);
 
     private string BaseUrl => options.UseSandbox ? "https://api-sandbox.asaas.com/v3" : "https://api.asaas.com/v3";
 
@@ -59,7 +49,7 @@ public sealed class AsaasPixProvider(HttpClient http, IAsaasOptions options, ICl
             : await StartSingleChargeAsync(request, customerId, cancellationToken).ConfigureAwait(false);
     }
 
-    public Task<PaymentEvent?> InterpretAsync(InboundNotification notification, CancellationToken cancellationToken)
+    public Task<PaymentEvent?> ReadPaymentEventAsync(InboundNotification notification, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(notification);
 
@@ -75,7 +65,6 @@ public sealed class AsaasPixProvider(HttpClient http, IAsaasOptions options, ICl
             return Task.FromResult<PaymentEvent?>(null);
         }
 
-        // A hora vem sem fuso declarado; usar o relógio local evita adiar ou antecipar vencimento.
         return Task.FromResult<PaymentEvent?>(new PaymentEvent(kind, paymentId, clock.UtcNow)
         {
             OrderId = Guid.TryParse(Text(payment, "externalReference"), out var orderId) ? orderId : null,
@@ -107,27 +96,32 @@ public sealed class AsaasPixProvider(HttpClient http, IAsaasOptions options, ICl
         _ => null
     };
 
-    /// <summary>
-    /// O Asaas cobra por cliente cadastrado, então o usuário do Jellyfin é procurado pela
-    /// referência externa antes de criar outro.
-    /// </summary>
     private async Task<string> EnsureCustomerAsync(Payer payer, CancellationToken cancellationToken)
     {
         var reference = payer.UserId.ToString("N");
 
+        return await FindCustomerAsync(reference, cancellationToken).ConfigureAwait(false)
+               ?? await CreateCustomerAsync(payer, reference, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<string?> FindCustomerAsync(string reference, CancellationToken cancellationToken)
+    {
         var existing = await SendAsync(
             HttpMethod.Get,
             $"/customers?externalReference={reference}",
             null,
             cancellationToken).ConfigureAwait(false);
 
-        if (existing.TryGetProperty("data", out var found)
-            && found.GetArrayLength() > 0
-            && Text(found[0], "id") is { } knownId)
-        {
-            return knownId;
-        }
+        return existing.TryGetProperty("data", out var found) && found.GetArrayLength() > 0
+            ? Text(found[0], "id")
+            : null;
+    }
 
+    private async Task<string> CreateCustomerAsync(
+        Payer payer,
+        string reference,
+        CancellationToken cancellationToken)
+    {
         var taxId = Blank(payer.TaxId) ?? Blank(options.DefaultTaxId);
 
         if (taxId is null)
@@ -196,7 +190,6 @@ public sealed class AsaasPixProvider(HttpClient http, IAsaasOptions options, ICl
 
         if (firstCharge is null)
         {
-            // A recorrência gera a primeira cobrança logo depois de criada, não junto.
             return new CheckoutTicket(subscriptionId, new PaymentInstructions
             {
                 Message = "Assinatura criada. O Pix da primeira mensalidade aparece em instantes."
@@ -284,29 +277,29 @@ public sealed class AsaasPixProvider(HttpClient http, IAsaasOptions options, ICl
 
         if (!response.IsSuccessStatusCode)
         {
-            throw new PaywallException($"Asaas recusou a chamada ({(int)response.StatusCode}): {Describe(payload)}");
+            throw new PaywallException(
+                $"Asaas recusou a chamada ({(int)response.StatusCode}): {DescribeFailure(payload)}");
         }
 
         using var document = JsonDocument.Parse(payload);
         return document.RootElement.Clone();
     }
 
-    private static string Describe(string payload)
+    private static string DescribeFailure(string payload) => TryReadFirstError(payload) ?? payload;
+
+    private static string? TryReadFirstError(string payload)
     {
         try
         {
             using var document = JsonDocument.Parse(payload);
 
-            if (document.RootElement.TryGetProperty("errors", out var errors) && errors.GetArrayLength() > 0)
-            {
-                return Text(errors[0], "description") ?? payload;
-            }
+            return document.RootElement.TryGetProperty("errors", out var errors) && errors.GetArrayLength() > 0
+                ? Text(errors[0], "description")
+                : null;
         }
         catch (JsonException)
         {
-            // Resposta que não é JSON já é a própria explicação.
+            return null;
         }
-
-        return payload;
     }
 }

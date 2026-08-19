@@ -4,10 +4,6 @@ using Paywall.Infrastructure.Providers.Crypto;
 
 namespace Jellyfin.Plugin.Paywall.Jellyfin;
 
-/// <summary>
-/// Uma classe de opções por provedor. Um adaptador só não serviria: todos chamam a
-/// credencial de <c>ApiKey</c>, e cada provedor só deve enxergar o que é dele.
-/// </summary>
 internal static class Settings
 {
     public static PluginConfiguration Current => Plugin.Instance?.Configuration ?? new PluginConfiguration();

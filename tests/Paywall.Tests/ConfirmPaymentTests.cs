@@ -53,9 +53,6 @@ public class ConfirmPaymentTests
         Assert.Equal(Now.AddDays(30), grant?.ExpiresAt);
     }
 
-    /// <summary>
-    /// A cobrança que a recorrência gera sozinha no mês seguinte chega sem pedido correspondente.
-    /// </summary>
     [Fact]
     public async Task RenovacaoDeAssinaturaEstendeMesmoSemPedidoAberto()
     {

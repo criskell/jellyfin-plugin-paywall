@@ -1,42 +1,63 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace Paywall.Infrastructure.Providers.Crypto;
 
-/// <summary>
-/// Verificação de assinatura de webhook. Cada processador escolheu um algoritmo diferente,
-/// mas todos assinam o corpo com um segredo compartilhado.
-/// </summary>
 internal static class WebhookSignature
 {
     public static bool MatchesSha256(string body, string secret, string? received) =>
-        Matches(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(body)), received);
+        MatchesDigest(HMACSHA256.HashData(Utf8(secret), Utf8(body)), received);
 
     public static bool MatchesSha512(string body, string secret, string? received) =>
-        Matches(HMACSHA512.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(body)), received);
+        MatchesDigest(HMACSHA512.HashData(Utf8(secret), Utf8(body)), received);
 
     public static string Sha256Hex(string message, string secret) =>
-        Convert.ToHexStringLower(
-            HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes(message)));
+        Convert.ToHexStringLower(HMACSHA256.HashData(Utf8(secret), Utf8(message)));
 
-    /// <summary>
-    /// Comparação em tempo fixo: comparar por igualdade comum vazaria, pelo tempo de resposta,
-    /// quantos caracteres iniciais um atacante acertou.
-    /// </summary>
-    public static bool Matches(byte[] expected, string? received)
+    private static bool MatchesDigest(byte[] expected, string? received)
     {
-        if (string.IsNullOrWhiteSpace(received))
+        if (received is null)
         {
             return false;
         }
 
-        var offered = received.Contains('=', StringComparison.Ordinal)
-            ? received[(received.IndexOf('=', StringComparison.Ordinal) + 1)..]
-            : received;
+        Span<byte> offered = stackalloc byte[expected.Length];
 
-        Span<byte> parsed = stackalloc byte[expected.Length];
-
-        return Convert.FromHexString(offered.Trim()).AsSpan().TryCopyTo(parsed)
-               && CryptographicOperations.FixedTimeEquals(expected, parsed);
+        return TryDecodeHex(WithoutAlgorithmPrefix(received), offered)
+               && CryptographicOperations.FixedTimeEquals(expected, offered);
     }
+
+    private static bool TryDecodeHex(ReadOnlySpan<char> hex, Span<byte> destination)
+    {
+        if (hex.Length != destination.Length * 2)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < destination.Length; index++)
+        {
+            if (!byte.TryParse(
+                    hex.Slice(index * 2, 2),
+                    NumberStyles.HexNumber,
+                    CultureInfo.InvariantCulture,
+                    out var octet))
+            {
+                return false;
+            }
+
+            destination[index] = octet;
+        }
+
+        return true;
+    }
+
+    private static ReadOnlySpan<char> WithoutAlgorithmPrefix(string received)
+    {
+        var separator = received.IndexOf('=', StringComparison.Ordinal);
+
+        return received.AsSpan(separator + 1).Trim();
+    }
+
+    private static byte[] Utf8(string value) => Encoding.UTF8.GetBytes(value);
 }

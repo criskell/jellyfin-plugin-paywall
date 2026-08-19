@@ -1,8 +1,5 @@
 namespace Paywall.Domain;
 
-/// <summary>
-/// Valor monetário em unidades mínimas (centavos), evitando ponto flutuante em dinheiro.
-/// </summary>
 public readonly record struct Money
 {
     private Money(long cents, string currency)

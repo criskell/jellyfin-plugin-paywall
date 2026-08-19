@@ -23,7 +23,6 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     public override string Description => "Libera o acesso à biblioteca conforme pagamento ou assinatura.";
 
-    /// <summary>Onde vive o banco do plugin, separado do banco do servidor.</summary>
     public string DataPath { get; }
 
     public IEnumerable<PluginPageInfo> GetPages() =>

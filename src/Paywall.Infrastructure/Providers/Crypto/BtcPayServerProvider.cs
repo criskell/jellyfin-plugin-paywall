@@ -10,7 +10,6 @@ namespace Paywall.Infrastructure.Providers.Crypto;
 
 public interface IBtcPayOptions
 {
-    /// <summary>Endereço da sua instância, por exemplo <c>https://btcpay.seudominio.com</c>.</summary>
     string? ServerUrl { get; }
 
     string? StoreId { get; }
@@ -20,10 +19,6 @@ public interface IBtcPayOptions
     string? WebhookSecret { get; }
 }
 
-/// <summary>
-/// Bitcoin e Lightning pela sua própria instância de BTCPay Server: sem intermediário
-/// custodiando o dinheiro e sem taxa de processamento.
-/// </summary>
 public sealed class BtcPayServerProvider(HttpClient http, IBtcPayOptions options, IClock clock)
     : IPaymentProvider
 {
@@ -31,10 +26,6 @@ public sealed class BtcPayServerProvider(HttpClient http, IBtcPayOptions options
 
     public string DisplayName => "Bitcoin e Lightning (BTCPay Server)";
 
-    /// <summary>
-    /// Cripto não tem débito automático: ninguém consegue puxar o pagamento do usuário todo mês.
-    /// Assinatura aqui seria renovação manual, então o provedor só se oferece para cobrança avulsa.
-    /// </summary>
     public IReadOnlyCollection<BillingMode> SupportedModes { get; } = [BillingMode.OneTime];
 
     public bool IsConfigured =>
@@ -84,7 +75,7 @@ public sealed class BtcPayServerProvider(HttpClient http, IBtcPayOptions options
         });
     }
 
-    public Task<PaymentEvent?> InterpretAsync(InboundNotification notification, CancellationToken cancellationToken)
+    public Task<PaymentEvent?> ReadPaymentEventAsync(InboundNotification notification, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(notification);
 
@@ -109,16 +100,16 @@ public sealed class BtcPayServerProvider(HttpClient http, IBtcPayOptions options
         });
     }
 
-    /// <summary>
-    /// <c>InvoiceSettled</c> é o único que significa dinheiro confirmado: <c>InvoiceProcessing</c>
-    /// ainda espera confirmação na rede e <c>InvoiceReceivedPayment</c> pode ser pagamento parcial.
-    /// </summary>
     private static PaymentEventKind? MapEvent(string? type) => type switch
     {
         "InvoiceSettled" => PaymentEventKind.Settled,
         "InvoiceExpired" or "InvoiceInvalid" => PaymentEventKind.Failed,
+        "InvoiceCreated" or "InvoiceReceivedPayment" or "InvoiceProcessing" or "InvoicePaymentSettled" =>
+            NotConfirmedOnChainYet,
         _ => null
     };
+
+    private static readonly PaymentEventKind? NotConfirmedOnChainYet;
 
     private static Guid? ReadOrderId(JsonElement root)
     {

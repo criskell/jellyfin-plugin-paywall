@@ -3,10 +3,6 @@ using Paywall.Application.Ports;
 
 namespace Jellyfin.Plugin.Paywall.Jellyfin;
 
-/// <summary>
-/// Quem está sujeito ao paywall. Administradores e isentos ficam fora para ninguém
-/// se trancar para fora do próprio servidor.
-/// </summary>
 public sealed class JellyfinSubscriberDirectory(IUserManager userManager) : ISubscriberDirectory
 {
     public Task<IReadOnlyCollection<Subscriber>> ListAsync(CancellationToken cancellationToken)
@@ -31,7 +27,6 @@ public sealed class JellyfinSubscriberDirectory(IUserManager userManager) : ISub
         return Task.FromResult(subject);
     }
 
-    /// <summary>Aceita id com ou sem hífen, já que painel e arquivo de configuração divergem.</summary>
     private static HashSet<Guid> ExemptIds =>
         (Plugin.Instance?.Configuration.ExemptUserIds ?? [])
         .Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty)

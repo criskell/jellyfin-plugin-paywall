@@ -11,14 +11,11 @@ public sealed record StartCheckoutCommand(Guid UserId, string UserName, string P
     public string? TaxId { get; init; }
 }
 
-/// <summary>
-/// Abre uma cobrança no método escolhido e registra o pedido antes de exibir a instrução de pagamento.
-/// </summary>
 public sealed class StartCheckout(
     IPlanCatalog plans,
     IPaymentProviderRegistry providers,
     IOrderRepository orders,
-    IWebhookEndpoints webhooks,
+    IPaywallUrls urls,
     IClock clock,
     IIdentifierFactory identifiers)
 {
@@ -38,7 +35,10 @@ public sealed class StartCheckout(
         await orders.SaveAsync(order, cancellationToken).ConfigureAwait(false);
 
         var payer = new Payer(command.UserId, command.UserName) { Email = command.Email, TaxId = command.TaxId };
-        var request = new CheckoutRequest(order.Id, plan, payer, webhooks.For(provider.Key));
+        var request = new CheckoutRequest(order.Id, plan, payer, urls.WebhookFor(provider.Key))
+        {
+            ReturnUrl = urls.Portal
+        };
 
         var ticket = await provider.StartCheckoutAsync(request, cancellationToken).ConfigureAwait(false);
 

@@ -4,10 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.Paywall.Api;
 
-/// <summary>
-/// Serve a tela que o usuário sem acesso enxerga. Plugin não consegue injetar interface no
-/// cliente web do Jellyfin, então o portal é uma página própria que autentica pela API dele.
-/// </summary>
 [ApiController]
 [Route("Paywall")]
 public sealed class PaywallPortalController : ControllerBase

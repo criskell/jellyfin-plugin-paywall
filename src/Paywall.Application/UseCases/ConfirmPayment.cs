@@ -6,12 +6,10 @@ namespace Paywall.Application.UseCases;
 
 public enum ConfirmPaymentOutcome
 {
-    /// <summary>Notificação legítima, mas sem efeito sobre cobranças (ping, evento irrelevante).</summary>
     Ignored,
 
     OrderNotFound,
 
-    /// <summary>Reentrega de um webhook já processado.</summary>
     AlreadyProcessed,
 
     AccessGranted,
@@ -20,9 +18,6 @@ public enum ConfirmPaymentOutcome
     SubscriptionEnded
 }
 
-/// <summary>
-/// Único caminho pelo qual um pagamento vira acesso. Chamado pelo webhook de qualquer provedor.
-/// </summary>
 public sealed class ConfirmPayment(
     IPaymentProviderRegistry providers,
     IOrderRepository orders,
@@ -38,7 +33,7 @@ public sealed class ConfirmPayment(
         ArgumentNullException.ThrowIfNull(notification);
 
         var provider = providers.Resolve(notification.ProviderKey);
-        var payment = await provider.InterpretAsync(notification, cancellationToken).ConfigureAwait(false);
+        var payment = await provider.ReadPaymentEventAsync(notification, cancellationToken).ConfigureAwait(false);
 
         if (payment is null)
         {
@@ -60,65 +55,69 @@ public sealed class ConfirmPayment(
             PaymentEventKind.Refunded => await RevokeAsync(order, payment, cancellationToken).ConfigureAwait(false),
             PaymentEventKind.Failed => await FailAsync(order, payment, cancellationToken).ConfigureAwait(false),
             PaymentEventKind.SubscriptionCanceled =>
-                await DetachSubscriptionAsync(order, cancellationToken).ConfigureAwait(false),
+                await KeepAccessUntilPaidPeriodEndsAsync(order, cancellationToken).ConfigureAwait(false),
             _ => ConfirmPaymentOutcome.Ignored
         };
     }
 
-    /// <summary>
-    /// Casa a notificação com um pedido. A cobrança que a recorrência gera sozinha todo mês
-    /// nunca teve pedido aberto por aqui, então nesse caso um pedido de renovação é criado.
-    /// </summary>
     private async Task<Order?> ResolveOrderAsync(
         string providerKey,
         PaymentEvent payment,
         CancellationToken cancellationToken)
     {
-        if (payment.OrderId is { } orderId)
-        {
-            var byId = await orders.FindAsync(orderId, cancellationToken).ConfigureAwait(false);
+        return await FindAwaitingPaymentAsync(payment, cancellationToken).ConfigureAwait(false)
+               ?? await FindByChargeAsync(providerKey, payment, cancellationToken).ConfigureAwait(false)
+               ?? await FindFirstChargeOfNewSubscriptionAsync(providerKey, payment, cancellationToken)
+                   .ConfigureAwait(false)
+               ?? await OpenRenewalOfExistingSubscriptionAsync(providerKey, payment, cancellationToken)
+                   .ConfigureAwait(false);
+    }
 
-            if (byId is { Status: OrderStatus.Pending })
-            {
-                return byId;
-            }
-        }
-
-        var byReference = await orders
-            .FindByReferenceAsync(providerKey, payment.ProviderReference, cancellationToken)
-            .ConfigureAwait(false);
-
-        if (byReference is not null)
-        {
-            return byReference;
-        }
-
-        if (payment.SubscriptionReference is not { } subscriptionReference)
+    private async Task<Order?> FindAwaitingPaymentAsync(PaymentEvent payment, CancellationToken cancellationToken)
+    {
+        if (payment.OrderId is not { } orderId)
         {
             return null;
         }
 
-        // A primeira cobrança de uma assinatura nova: o pedido foi aberto com o id da recorrência.
-        var bySubscription = await orders
-            .FindByReferenceAsync(providerKey, subscriptionReference, cancellationToken)
-            .ConfigureAwait(false);
+        var order = await orders.FindAsync(orderId, cancellationToken).ConfigureAwait(false);
 
-        if (bySubscription is { Status: OrderStatus.Pending })
-        {
-            return bySubscription;
-        }
-
-        return await OpenRenewalAsync(
-            new Subscription(providerKey, subscriptionReference),
-            payment,
-            cancellationToken).ConfigureAwait(false);
+        return order is { Status: OrderStatus.Pending } ? order : null;
     }
 
-    private async Task<Order?> OpenRenewalAsync(
-        Subscription subscription,
+    private Task<Order?> FindByChargeAsync(
+        string providerKey,
+        PaymentEvent payment,
+        CancellationToken cancellationToken) =>
+        orders.FindByReferenceAsync(providerKey, payment.ProviderReference, cancellationToken);
+
+    private async Task<Order?> FindFirstChargeOfNewSubscriptionAsync(
+        string providerKey,
         PaymentEvent payment,
         CancellationToken cancellationToken)
     {
+        if (payment.SubscriptionReference is not { } reference)
+        {
+            return null;
+        }
+
+        var order = await orders.FindByReferenceAsync(providerKey, reference, cancellationToken)
+            .ConfigureAwait(false);
+
+        return order is { Status: OrderStatus.Pending } ? order : null;
+    }
+
+    private async Task<Order?> OpenRenewalOfExistingSubscriptionAsync(
+        string providerKey,
+        PaymentEvent payment,
+        CancellationToken cancellationToken)
+    {
+        if (payment.SubscriptionReference is not { } reference)
+        {
+            return null;
+        }
+
+        var subscription = new Subscription(providerKey, reference);
         var grant = await grants.FindBySubscriptionAsync(subscription, cancellationToken).ConfigureAwait(false);
 
         if (grant?.PlanId is null || plans.Find(grant.PlanId) is not { } plan)
@@ -197,10 +196,9 @@ public sealed class ConfirmPayment(
         return ConfirmPaymentOutcome.PaymentFailed;
     }
 
-    /// <summary>
-    /// Assinatura cancelada não corta o acesso na hora: o usuário fica até o fim do período já pago.
-    /// </summary>
-    private async Task<ConfirmPaymentOutcome> DetachSubscriptionAsync(Order order, CancellationToken cancellationToken)
+    private async Task<ConfirmPaymentOutcome> KeepAccessUntilPaidPeriodEndsAsync(
+        Order order,
+        CancellationToken cancellationToken)
     {
         var grant = await grants.FindAsync(order.UserId, cancellationToken).ConfigureAwait(false);
 
