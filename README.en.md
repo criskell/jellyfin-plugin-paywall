@@ -60,6 +60,20 @@ Revoking cuts immediately and ignores the grace period, which exists for late pa
 than for someone cut off on purpose. And turning the plugin off gives everyone their access
 back on the next evaluation: otherwise disabling it would lock users out permanently.
 
+## What the user sees
+
+A checkout failure reaches the user as one generic sentence; the detail, including the
+provider's raw response, stays in the server log. Without that, the payment provider's refusal
+would be handed verbatim to the person trying to pay. The admin panel still gets the full
+message, because that is where it is worth anything.
+
+User endpoints use bare `[Authorize]`, which falls back to Jellyfin's default policy; admin ones
+use the `Policies.RequiresElevation` constant. No policy name is a loose string, so a typo
+becomes a compile error instead of a 500 in production.
+
+Payment notifications are handled one at a time. Asaas sends two events for the same charge, and
+in parallel both would pass the pending check before either wrote, crediting twice the period.
+
 ## Database
 
 The plugin opens its own `paywall.db`, separate from `jellyfin.db`. The server owns its schema

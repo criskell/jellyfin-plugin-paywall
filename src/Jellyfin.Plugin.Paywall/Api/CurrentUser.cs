@@ -6,11 +6,6 @@ internal static class CurrentUser
 {
     private const string JellyfinUserIdClaim = "Jellyfin-UserId";
 
-    public static Guid? IdOf(ClaimsPrincipal principal)
-    {
-        var raw = principal.FindFirstValue(JellyfinUserIdClaim)
-                  ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        return Guid.TryParse(raw, out var id) ? id : null;
-    }
+    public static Guid? IdOf(ClaimsPrincipal principal) =>
+        Guid.TryParse(principal.FindFirstValue(JellyfinUserIdClaim), out var id) ? id : null;
 }

@@ -1,15 +1,22 @@
+using MediaBrowser.Controller.Library;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Paywall.Application;
 using Paywall.Application.Payments;
 using Paywall.Application.UseCases;
 
 namespace Jellyfin.Plugin.Paywall.Api;
 
-public sealed record StartCheckoutBody(string PlanId, string ProviderKey)
-{
-    public string? TaxId { get; init; }
-}
+public sealed record StartCheckoutBody(string PlanId, string ProviderKey);
+
+public sealed record CheckoutView(
+    string? CopyPasteCode,
+    string? QrCodeImage,
+    string? RedirectUrl,
+    string? Message,
+    DateTimeOffset? ExpiresAt);
 
 [ApiController]
 [Route("Paywall")]
@@ -17,10 +24,11 @@ public sealed record StartCheckoutBody(string PlanId, string ProviderKey)
 public sealed class PaywallController(
     GetAccessStatus accessStatus,
     StartCheckout startCheckout,
-    MediaBrowser.Controller.Library.IUserManager userManager) : ControllerBase
+    IUserManager userManager,
+    ILogger<PaywallController> logger) : ControllerBase
 {
     [HttpGet("Status")]
-    [Authorize(Policy = "DefaultAuthorization")]
+    [Authorize]
     public async Task<ActionResult<AccessStatusView>> GetStatus(CancellationToken cancellationToken)
     {
         if (CurrentUser.IdOf(User) is not { } userId)
@@ -32,8 +40,8 @@ public sealed class PaywallController(
     }
 
     [HttpPost("Checkout")]
-    [Authorize(Policy = "DefaultAuthorization")]
-    public async Task<ActionResult<CheckoutTicket>> Checkout(
+    [Authorize]
+    public async Task<ActionResult<CheckoutView>> Checkout(
         [FromBody] StartCheckoutBody body,
         CancellationToken cancellationToken)
     {
@@ -49,18 +57,38 @@ public sealed class PaywallController(
             return Unauthorized();
         }
 
-        var command = new StartCheckoutCommand(userId, user.Username, body.PlanId, body.ProviderKey)
-        {
-            TaxId = body.TaxId
-        };
+        var command = new StartCheckoutCommand(userId, user.Username, body.PlanId, body.ProviderKey);
 
         try
         {
-            return await startCheckout.ExecuteAsync(command, cancellationToken).ConfigureAwait(false);
+            var ticket = await startCheckout.ExecuteAsync(command, cancellationToken).ConfigureAwait(false);
+
+            return Describe(ticket);
         }
         catch (PaywallException failure)
         {
-            return BadRequest(new { error = failure.Message });
+            logger.LogWarning(failure, "Paywall: checkout de {User} não pôde ser aberto.", user.Username);
+
+            return BadRequest(new { error = failure.UserMessage });
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception failure)
+        {
+            logger.LogError(failure, "Paywall: provedor {Provider} falhou no checkout.", body.ProviderKey);
+
+            return StatusCode(
+                StatusCodes.Status502BadGateway,
+                new { error = "O meio de pagamento não respondeu. Tente de novo em instantes." });
         }
     }
+
+    private static CheckoutView Describe(CheckoutTicket ticket) => new(
+        ticket.Instructions.CopyPasteCode,
+        ticket.Instructions.QrCodeImage,
+        ticket.Instructions.RedirectUrl?.ToString(),
+        ticket.Instructions.Message,
+        ticket.Instructions.ExpiresAt);
 }

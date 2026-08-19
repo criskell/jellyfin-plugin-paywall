@@ -1,3 +1,4 @@
+using MediaBrowser.Common.Api;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Paywall.Application;
@@ -9,7 +10,7 @@ public sealed record GrantAccessBody(string PlanId);
 
 [ApiController]
 [Route("Paywall/Admin")]
-[Authorize(Policy = "RequiresElevation")]
+[Authorize(Policy = Policies.RequiresElevation)]
 [Produces("application/json")]
 public sealed class PaywallAdminController(
     GrantAccessManually grantAccess,

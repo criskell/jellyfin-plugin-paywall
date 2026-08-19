@@ -256,16 +256,14 @@
             request('Paywall/Checkout', {
                 method: 'POST',
                 body: { PlanId: selectedPlan, ProviderKey: el('method').value }
-            }).then(function (ticket) {
-                var instructions = ticket.Instructions;
-
-                el('copyPaste').textContent = instructions.CopyPasteCode || '';
-                el('chargeMessage').textContent = instructions.Message || '';
-                el('qrImage').hidden = !instructions.QrCodeImage;
-                el('qrImage').src = instructions.QrCodeImage || '';
-                el('copyBlock').hidden = !instructions.CopyPasteCode;
-                el('hostedLink').hidden = !instructions.RedirectUrl;
-                el('hostedLink').href = instructions.RedirectUrl || '#';
+            }).then(function (charge) {
+                el('copyPaste').textContent = charge.CopyPasteCode || '';
+                el('chargeMessage').textContent = charge.Message || '';
+                el('qrImage').hidden = !charge.QrCodeImage;
+                el('qrImage').src = charge.QrCodeImage || '';
+                el('copyBlock').hidden = !charge.CopyPasteCode;
+                el('hostedLink').hidden = !charge.RedirectUrl;
+                el('hostedLink').href = charge.RedirectUrl || '#';
                 el('copyButton').textContent = 'Copiar código';
 
                 show('chargeView');

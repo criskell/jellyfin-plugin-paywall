@@ -59,6 +59,21 @@ Revogar corta na hora e ignora a tolerância, que existe para atraso de pagament
 quem foi cortado de propósito. E desligar o plugin devolve o acesso a todo mundo na próxima
 reavaliação: caso contrário, desativá-lo trancaria os usuários para fora permanentemente.
 
+## O que o usuário vê
+
+Erro de checkout chega ao usuário como frase genérica; o detalhe, incluindo a resposta crua do
+provedor, fica só no log do servidor. Sem isso a recusa do PSP seria repassada inteira a quem
+está pagando. O painel administrativo continua recebendo a mensagem completa, porque é lá que
+ela serve para alguma coisa.
+
+Endpoints do usuário usam `[Authorize]`, que cai na política padrão do Jellyfin; os
+administrativos usam a constante `Policies.RequiresElevation`. Nenhum nome de política em
+texto solto, para um erro de digitação virar falha de compilação e não 500 em produção.
+
+Notificação de pagamento é processada uma por vez. O Asaas manda dois eventos para a mesma
+cobrança, e em paralelo os dois passariam pela checagem de pendente antes de qualquer um
+gravar, creditando o dobro do período.
+
 ## Banco
 
 O plugin abre o próprio `paywall.db`, separado do `jellyfin.db`. O schema do servidor é dele

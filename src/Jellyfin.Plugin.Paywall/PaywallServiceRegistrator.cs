@@ -1,4 +1,5 @@
 using Jellyfin.Data.Events.Users;
+using Jellyfin.Plugin.Paywall.Api;
 using Jellyfin.Plugin.Paywall.Events;
 using Jellyfin.Plugin.Paywall.Jellyfin;
 using MediaBrowser.Controller.Events;
@@ -53,6 +54,7 @@ public sealed class PaywallServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<ApplyCurrentAccess>();
         serviceCollection.AddSingleton<StartCheckout>();
         serviceCollection.AddSingleton<ConfirmPayment>();
+        serviceCollection.AddSingleton<PaymentNotificationGate>();
         serviceCollection.AddSingleton<SyncAccess>();
         serviceCollection.AddSingleton<GrantAccessManually>();
         serviceCollection.AddSingleton<RevokeAccess>();

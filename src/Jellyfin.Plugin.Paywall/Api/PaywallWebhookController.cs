@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Paywall.Application;
+using Paywall.Infrastructure;
 using Paywall.Application.Payments;
 using Paywall.Application.UseCases;
 
@@ -11,6 +12,7 @@ namespace Jellyfin.Plugin.Paywall.Api;
 [Route("Paywall/Webhook")]
 public sealed class PaywallWebhookController(
     ConfirmPayment confirmPayment,
+    PaymentNotificationGate gate,
     ILogger<PaywallWebhookController> logger) : ControllerBase
 {
     [HttpPost("{providerKey}")]
@@ -28,10 +30,12 @@ public sealed class PaywallWebhookController(
 
         try
         {
-            var outcome = await confirmPayment.ExecuteAsync(notification, cancellationToken).ConfigureAwait(false);
+            var outcome = await gate
+                .EnterAsync(() => confirmPayment.ExecuteAsync(notification, cancellationToken), cancellationToken)
+                .ConfigureAwait(false);
             logger.LogInformation("Paywall: webhook de {Provider} resultou em {Outcome}.", providerKey, outcome);
 
-            return outcome == ConfirmPaymentOutcome.OrderNotFound ? NotFound() : Ok(new { outcome = outcome.ToString() });
+            return outcome == ConfirmPaymentOutcome.OrderNotFound ? NotFound() : NoContent();
         }
         catch (PaywallException failure)
         {
