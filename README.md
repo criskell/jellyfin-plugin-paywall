@@ -45,6 +45,10 @@ o corpo cru, a OpenNode assina só o id da cobrança com a própria chave de API
 formulário codificado, e a NOWPayments usa HMAC-SHA512 sobre o JSON com as chaves em ordem
 alfabética.
 
+Assinatura cancelada no provedor não corta o acesso: ela solta a recorrência e o usuário fica
+até o fim do período que já pagou. Isso é resolvido direto na concessão, encontrada pelo id da
+recorrência, e não passa por pedido nenhum — cancelar não é uma cobrança.
+
 ## Como o bloqueio funciona
 
 O núcleo decide liberar ou negar; `JellyfinAccessEnforcer` aplica via `UpdatePolicyAsync`, o

@@ -59,18 +59,40 @@ public sealed class AsaasPixProvider(HttpClient http, IAsaasOptions options, ICl
         using var document = JsonDocument.Parse(notification.Body);
         var root = document.RootElement;
 
-        if (!root.TryGetProperty("payment", out var payment)
-            || MapEvent(Text(root, "event")) is not { } kind
-            || Text(payment, "id") is not { } paymentId)
+        var name = Text(root, "event");
+
+        return Task.FromResult(ReadSubscriptionEnded(root, name) ?? ReadPayment(root, name));
+    }
+
+    private PaymentEvent? ReadSubscriptionEnded(JsonElement root, string? name)
+    {
+        if (name is not ("SUBSCRIPTION_DELETED" or "SUBSCRIPTION_INACTIVATED")
+            || !root.TryGetProperty("subscription", out var subscription)
+            || Text(subscription, "id") is not { } subscriptionId)
         {
-            return Task.FromResult<PaymentEvent?>(null);
+            return null;
         }
 
-        return Task.FromResult<PaymentEvent?>(new PaymentEvent(kind, paymentId, clock.UtcNow)
+        return new PaymentEvent(PaymentEventKind.SubscriptionCanceled, subscriptionId, clock.UtcNow)
+        {
+            SubscriptionReference = subscriptionId
+        };
+    }
+
+    private PaymentEvent? ReadPayment(JsonElement root, string? name)
+    {
+        if (!root.TryGetProperty("payment", out var payment)
+            || MapEvent(name) is not { } kind
+            || Text(payment, "id") is not { } paymentId)
+        {
+            return null;
+        }
+
+        return new PaymentEvent(kind, paymentId, clock.UtcNow)
         {
             OrderId = Guid.TryParse(Text(payment, "externalReference"), out var orderId) ? orderId : null,
             SubscriptionReference = Text(payment, "subscription")
-        });
+        };
     }
 
     public async Task CancelSubscriptionAsync(string subscriptionReference, CancellationToken cancellationToken)

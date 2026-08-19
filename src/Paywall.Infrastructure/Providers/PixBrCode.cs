@@ -31,8 +31,15 @@ public static class PixBrCode
         return payload + Crc16(payload);
     }
 
-    private static string Field(string id, string value) =>
-        id + value.Length.ToString("D2", CultureInfo.InvariantCulture) + value;
+    private static string Field(string id, string value)
+    {
+        if (value.Length > 99)
+        {
+            throw new ArgumentException($"Campo {id} do BR Code passa de 99 caracteres.", nameof(value));
+        }
+
+        return id + value.Length.ToString("D2", CultureInfo.InvariantCulture) + value;
+    }
 
     private static string ToPrintableAscii(string? value, int maxLength, string fallback)
     {
@@ -57,7 +64,7 @@ public static class PixBrCode
             }
         }
 
-        var cleaned = builder.ToString().Trim();
+        var cleaned = CollapseSpaces(builder.ToString());
 
         if (cleaned.Length == 0)
         {
@@ -65,6 +72,13 @@ public static class PixBrCode
         }
 
         return cleaned.Length > maxLength ? cleaned[..maxLength].Trim() : cleaned;
+    }
+
+    private static string CollapseSpaces(string value)
+    {
+        var words = value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        return string.Join(' ', words);
     }
 
     private static string Crc16(string payload)

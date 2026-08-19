@@ -87,7 +87,7 @@ public class ConfirmPaymentTests
         };
         var outcome = await Confirm(renewal, new InMemoryOrders(), new InMemoryGrants(), enforcer);
 
-        Assert.Equal(ConfirmPaymentOutcome.OrderNotFound, outcome);
+        Assert.Equal(ConfirmPaymentOutcome.Unmatched, outcome);
         Assert.Empty(enforcer.Applied);
     }
 
@@ -114,20 +114,36 @@ public class ConfirmPaymentTests
     {
         var orders = new InMemoryOrders();
         var grants = new InMemoryGrants();
-        var order = Order.Open(Guid.NewGuid(), Subscriber, Monthly, "stub", Now);
-        order.TrackAs("pay_1");
-        await orders.SaveAsync(order, CancellationToken.None);
-        await Confirm(new PaymentEvent(PaymentEventKind.Settled, "pay_1", Now), orders, grants, new RecordingEnforcer());
+        var grant = AccessGrant.NeverPaid(Subscriber);
+        grant.Extend(PlanTerms.Of(Monthly), Now);
+        grant.AttachSubscription(new Subscription("stub", "sub_42"));
+        await grants.SaveAsync(grant, CancellationToken.None);
 
-        await Confirm(
-            new PaymentEvent(PaymentEventKind.SubscriptionCanceled, "pay_1", Now.AddDays(5)),
-            orders,
-            grants,
-            new RecordingEnforcer());
+        var canceled = new PaymentEvent(PaymentEventKind.SubscriptionCanceled, "sub_42", Now.AddDays(5))
+        {
+            SubscriptionReference = "sub_42"
+        };
+        var outcome = await Confirm(canceled, orders, grants, new RecordingEnforcer());
 
-        var grant = await grants.FindAsync(Subscriber, CancellationToken.None);
-        Assert.True(grant!.IsActiveAt(Now.AddDays(20), TimeSpan.Zero));
-        Assert.Null(grant.Subscription);
+        Assert.Equal(ConfirmPaymentOutcome.SubscriptionEnded, outcome);
+        var kept = await grants.FindAsync(Subscriber, CancellationToken.None);
+        Assert.True(kept!.IsActiveAt(Now.AddDays(20), TimeSpan.Zero));
+        Assert.Null(kept.Subscription);
+    }
+
+    [Fact]
+    public async Task CancelamentoDeAssinaturaDesconhecidaNaoCriaPedido()
+    {
+        var orders = new InMemoryOrders();
+        var canceled = new PaymentEvent(PaymentEventKind.SubscriptionCanceled, "sub_x", Now)
+        {
+            SubscriptionReference = "sub_x"
+        };
+
+        var outcome = await Confirm(canceled, orders, new InMemoryGrants(), new RecordingEnforcer());
+
+        Assert.Equal(ConfirmPaymentOutcome.Unmatched, outcome);
+        Assert.Empty(await orders.ListAllAsync());
     }
 
     private static Task<ConfirmPaymentOutcome> Confirm(

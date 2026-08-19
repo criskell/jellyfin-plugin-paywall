@@ -526,8 +526,36 @@
                 send('Paywall/Admin/Sync', null);
             });
 
+            function firstProblemIn(plans) {
+                var seen = [];
+
+                for (var index = 0; index < plans.length; index++) {
+                    var plan = plans[index];
+
+                    if (plan.IsSubscription && plan.DurationDays <= 0) {
+                        return 'O plano "' + plan.Id + '" é assinatura e precisa de uma duração maior que zero.';
+                    }
+
+                    if (seen.indexOf(plan.Id) !== -1) {
+                        return 'Há mais de um plano com o identificador "' + plan.Id + '".';
+                    }
+
+                    seen.push(plan.Id);
+                }
+
+                return null;
+            }
+
             byId('PaywallConfigForm').addEventListener('submit', function (event) {
                 event.preventDefault();
+
+                var problem = firstProblemIn(readPlans());
+
+                if (problem) {
+                    Dashboard.alert(problem);
+                    return false;
+                }
+
                 Dashboard.showLoadingMsg();
 
                 ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {

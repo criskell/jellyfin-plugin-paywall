@@ -8,7 +8,7 @@ public enum ConfirmPaymentOutcome
 {
     Ignored,
 
-    OrderNotFound,
+    Unmatched,
 
     AlreadyProcessed,
 
@@ -40,11 +40,22 @@ public sealed class ConfirmPayment(
         }
 
         var providerKey = notification.ProviderKey;
+
+        return payment.Kind == PaymentEventKind.SubscriptionCanceled
+            ? await ReleaseSubscriptionAsync(providerKey, payment, cancellationToken).ConfigureAwait(false)
+            : await ApplyToOrderAsync(providerKey, payment, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<ConfirmPaymentOutcome> ApplyToOrderAsync(
+        string providerKey,
+        PaymentEvent payment,
+        CancellationToken cancellationToken)
+    {
         var order = await ResolveOrderAsync(providerKey, payment, cancellationToken).ConfigureAwait(false);
 
         if (order is null)
         {
-            return ConfirmPaymentOutcome.OrderNotFound;
+            return ConfirmPaymentOutcome.Unmatched;
         }
 
         return payment.Kind switch
@@ -53,10 +64,32 @@ public sealed class ConfirmPayment(
                 await SettleAsync(order, payment, providerKey, cancellationToken).ConfigureAwait(false),
             PaymentEventKind.Refunded => await RevokeAsync(order, payment, cancellationToken).ConfigureAwait(false),
             PaymentEventKind.Failed => await FailAsync(order, payment, cancellationToken).ConfigureAwait(false),
-            PaymentEventKind.SubscriptionCanceled =>
-                await KeepAccessUntilPaidPeriodEndsAsync(order, cancellationToken).ConfigureAwait(false),
             _ => ConfirmPaymentOutcome.Ignored
         };
+    }
+
+    private async Task<ConfirmPaymentOutcome> ReleaseSubscriptionAsync(
+        string providerKey,
+        PaymentEvent payment,
+        CancellationToken cancellationToken)
+    {
+        if (payment.SubscriptionReference is not { } reference)
+        {
+            return ConfirmPaymentOutcome.Ignored;
+        }
+
+        var subscription = new Subscription(providerKey, reference);
+        var grant = await grants.FindBySubscriptionAsync(subscription, cancellationToken).ConfigureAwait(false);
+
+        if (grant is null)
+        {
+            return ConfirmPaymentOutcome.Unmatched;
+        }
+
+        grant.AttachSubscription(null);
+        await grants.SaveAsync(grant, cancellationToken).ConfigureAwait(false);
+
+        return ConfirmPaymentOutcome.SubscriptionEnded;
     }
 
     private async Task<Order?> ResolveOrderAsync(
@@ -194,18 +227,4 @@ public sealed class ConfirmPayment(
         return ConfirmPaymentOutcome.PaymentFailed;
     }
 
-    private async Task<ConfirmPaymentOutcome> KeepAccessUntilPaidPeriodEndsAsync(
-        Order order,
-        CancellationToken cancellationToken)
-    {
-        var grant = await grants.FindAsync(order.UserId, cancellationToken).ConfigureAwait(false);
-
-        if (grant is not null)
-        {
-            grant.AttachSubscription(null);
-            await grants.SaveAsync(grant, cancellationToken).ConfigureAwait(false);
-        }
-
-        return ConfirmPaymentOutcome.SubscriptionEnded;
-    }
 }

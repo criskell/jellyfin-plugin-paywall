@@ -46,6 +46,10 @@ HMAC-SHA256 over the raw body, OpenNode signs only the charge id with the API ke
 notifies in form encoding, and NOWPayments uses HMAC-SHA512 over the JSON with keys sorted
 alphabetically.
 
+A subscription cancelled at the provider does not cut access: it releases the recurrence and the
+user keeps what they already paid for. That is settled straight on the grant, found by the
+recurrence id, and never goes through an order — cancelling is not a charge.
+
 ## How enforcement works
 
 The core decides allow or deny; `JellyfinAccessEnforcer` applies it through `UpdatePolicyAsync`,

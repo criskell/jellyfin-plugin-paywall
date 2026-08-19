@@ -35,7 +35,7 @@ public sealed class PaywallWebhookController(
                 .ConfigureAwait(false);
             logger.LogInformation("Paywall: webhook de {Provider} resultou em {Outcome}.", providerKey, outcome);
 
-            return outcome == ConfirmPaymentOutcome.OrderNotFound ? NotFound() : NoContent();
+            return outcome == ConfirmPaymentOutcome.Unmatched ? NotFound() : NoContent();
         }
         catch (PaywallException failure)
         {

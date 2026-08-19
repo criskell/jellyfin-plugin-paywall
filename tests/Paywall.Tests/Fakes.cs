@@ -33,6 +33,9 @@ internal sealed class InMemoryOrders : IOrderRepository
         _orders[order.Id] = order;
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyCollection<Order>> ListAllAsync() =>
+        Task.FromResult<IReadOnlyCollection<Order>>(_orders.Values.ToArray());
 }
 
 internal sealed class InMemoryGrants : IAccessGrantRepository
